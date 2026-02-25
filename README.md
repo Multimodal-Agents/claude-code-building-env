@@ -9,33 +9,39 @@ with your own skills, plugins, and hooks that survive every upstream update.
 
 ## Quick Start
 
-Double-click the desktop shortcut **or** run directly:
-
+### 1. Clone this repo
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\scripts_and_skills\claude_scripts\run_claude.ps1"
+git clone https://github.com/Multimodal-Agents/claude-code-building-env.git
+cd claude-code-building-env
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-Model` | `gpt-oss:20b` | Any Ollama model or `claude-*` for API |
-| `-Project` | *(workspace root)* | Jump straight into a project sub-folder |
-| `-ListModels` | — | Print known models and exit |
-| `-Debug` | — | Pass `--debug` to claude CLI |
-
-### Examples
-
+### 2. Run setup
 ```powershell
-# Default (local model, workspace root)
-.\run_claude.ps1
+.\setup.ps1
+```
 
-# Specific project
-.\run_claude.ps1 -Project learning_projects\claude_maple_first_database
+This clones two Anthropic reference repos into their expected locations:
+- `scripts_and_skills/claude_skills/skills/` ← [anthropics/skills](https://github.com/anthropics/skills)
+- `claude_code_custom/claude-code/` ← [anthropics/claude-code](https://github.com/anthropics/claude-code)
 
-# Different model
-.\run_claude.ps1 -Model "gpt-oss:7b"
+**If you already have `claude-code` cloned elsewhere:**
+```powershell
+.\setup.ps1 -ClaudeCodeDir "C:\your\existing\claude-code"
+```
 
-# Check what models are configured
-.\run_claude.ps1 -ListModels
+**Skip either clone:**
+```powershell
+.\setup.ps1 -SkipClaudeCode   # skip claude-code ref
+.\setup.ps1 -SkipSkills        # skip skills ref
+```
+
+### 3. Launch
+```powershell
+.\scripts_and_skills\claude_scripts\run_claude.ps1
+```
+Or point your desktop shortcut to:
+```
+powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\scripts_and_skills\claude_scripts\run_claude.ps1"
 ```
 
 ---
