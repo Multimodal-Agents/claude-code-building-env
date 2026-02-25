@@ -15,7 +15,29 @@
 
 ---
 
+## Step 0 — Create & activate the virtual environment
+
+A top-level `venv/` lives at the repo root. Create it once:
+
+```powershell
+python -m venv venv
+```
+
+Activate it **every time** before running any Python commands:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+You should see `(venv)` in your prompt. All `python` commands below assume this is active.
+
+> **Already done?** If `venv/` exists and packages are installed, skip straight to Step 2.
+
+---
+
 ## Step 1 — Install Python dependencies
+
+> Activate the venv first (Step 0).
 
 ```powershell
 # Data layer (prompts, embeddings, dataset generator, web search)
@@ -26,6 +48,12 @@ pip install -r scripts_and_skills/model_manager/requirements.txt
 
 # For HuggingFace downloads
 pip install huggingface_hub
+```
+
+Or install everything in one shot:
+
+```powershell
+pip install pandas pyarrow numpy requests "duckduckgo-search>=6.0" huggingface_hub
 ```
 
 ---
@@ -44,8 +72,10 @@ ollama pull nomic-embed-text
 
 ```powershell
 cd M:\claude_code_building_env
-python -m scripts_and_skills.data.seeds.corecoder_prompts
+.\venv\Scripts\python -m scripts_and_skills.data.seeds.corecoder_prompts
 ```
+
+The seed script is **idempotent** — safe to run multiple times. Rows are upserted, not duplicated.
 
 Expected output:
 ```
@@ -59,7 +89,7 @@ Done. Run embeddings next:
 ## Step 4 — Index the dataset for semantic search
 
 ```powershell
-python -m scripts_and_skills.data.embeddings embed corecoder-vscode-copilot
+.\venv\Scripts\python -m scripts_and_skills.data.embeddings embed corecoder-vscode-copilot
 ```
 
 ---
@@ -68,26 +98,31 @@ python -m scripts_and_skills.data.embeddings embed corecoder-vscode-copilot
 
 ```powershell
 # List all datasets
-python -m scripts_and_skills.data.prompt_store list
+.\venv\Scripts\python -m scripts_and_skills.data.prompt_store list
 
-# Semantic search test
-python -m scripts_and_skills.data.embeddings search corecoder-vscode-copilot "investigate terminal" --top 3
+# Check row count
+.\venv\Scripts\python -m scripts_and_skills.data.prompt_store stats corecoder-vscode-copilot
+
+# Semantic search test (after Step 4)
+.\venv\Scripts\python -m scripts_and_skills.data.embeddings search corecoder-vscode-copilot "investigate terminal" --top 3
 
 # List Ollama models
-python -m scripts_and_skills.model_manager.ollama_api list
+.\venv\Scripts\python -m scripts_and_skills.model_manager.ollama_api list
 
 # Check Ollama version
-python -m scripts_and_skills.model_manager.ollama_api version
+.\venv\Scripts\python -m scripts_and_skills.model_manager.ollama_api version
 ```
 
 ---
 
 ## Step 6 — Create a CoreCoder model (system prompt embedded)
 
+> **Already done?** `corecoder:latest` is already in Ollama (`ollama list | findstr corecoder`). Skip to Step 7.
+
 This bakes the CoreCoder system prompt directly into the Ollama model:
 
 ```python
-# Run this in a Python terminal or paste into Claude Code
+# Run this in a Python terminal
 from scripts_and_skills.model_manager import ModelfileBuilder
 from scripts_and_skills.data.prompt_store import PromptStore
 
@@ -106,12 +141,14 @@ b.create_model("corecoder:latest")
 
 Or via CLI:
 ```powershell
-python -m scripts_and_skills.model_manager.modelfile create corecoder:latest `
+.\venv\Scripts\python -m scripts_and_skills.model_manager.modelfile create corecoder:latest `
     --from gpt-oss:20b `
-    --system "You are CoreCoder, a highly skilled software engineer and machine learning specialist. Your expertise allows you to navigate the terminal, interpret file structures, and interact with the codebase intelligently." `
-    --temperature 0.1 `
+    --system "You are CoreCoder..." `
+    --temperature 0.2 `
     --ctx 8192
 ```
+
+> Uses the Ollama 0.17+ structured create API (no `modelfile` string field).
 
 ---
 
@@ -136,7 +173,7 @@ claude --model corecoder:latest
 See what quantizations are available for the gpt-oss-20b GGUF repo:
 
 ```powershell
-python -m scripts_and_skills.model_manager.hf_download unsloth/gpt-oss-20b-GGUF --list
+.\venv\Scripts\python -m scripts_and_skills.model_manager.hf_download unsloth/gpt-oss-20b-GGUF --list
 ```
 
 Pick the right quant for your VRAM:
@@ -149,7 +186,7 @@ Pick the right quant for your VRAM:
 
 Download and deploy in one command:
 ```powershell
-python -m scripts_and_skills.model_manager.hf_download unsloth/gpt-oss-20b-GGUF `
+.\venv\Scripts\python -m scripts_and_skills.model_manager.hf_download unsloth/gpt-oss-20b-GGUF `
     --file "gpt-oss-20b-Q4_K_M.gguf" `
     --out "M:/models/gguf" `
     --deploy --name "gpt-oss:20b-q4"
@@ -170,7 +207,7 @@ or quantize existing GGUFs with `llama-quantize`.
 .\setup_llamacpp.ps1 -CudaBuild
 
 # After setup, convert a HF model:
-python -m scripts_and_skills.model_manager.gguf_manager convert `
+.\venv\Scripts\python -m scripts_and_skills.model_manager.gguf_manager convert `
     "C:\models\hf\my-model" `
     "M:\models\gguf\my-model-f16.gguf" `
     --script "M:\llama.cpp\convert_hf_to_gguf.py"
@@ -196,7 +233,7 @@ python -m scripts_and_skills.model_manager.gguf_manager convert `
 | Component | Status | Notes |
 |-----------|--------|-------|
 | `PromptStore` | ✅ Ready | Run the seed script first |
-| `EmbeddingStore` | ✅ Ready | Requires `nomic-embed-text` in Ollama |
+| `EmbeddingStore` | ✅ Ready | Requires `nomic-embed-text` pulled in Ollama |
 | `DatasetGenerator` | ✅ Ready | Requires `gpt-oss:20b` running |
 | `WebSearch` | ✅ Ready | Requires `pip install duckduckgo-search` |
 | `OllamaAPI` | ✅ Ready | Requires Ollama running |
@@ -214,7 +251,7 @@ python -m scripts_and_skills.model_manager.gguf_manager convert `
 
 **`Connection refused` on port 11434** — Ollama isn't running. Start it: `ollama serve` or launch Ollama Desktop.
 
-**`ModuleNotFoundError: pandas`** — Run `pip install -r scripts_and_skills/data/requirements.txt`
+**`ModuleNotFoundError: pandas`** — Activate the venv first (`.\venv\Scripts\Activate.ps1`), then run `pip install -r scripts_and_skills/data/requirements.txt`
 
 **`nomic-embed-text not found`** — Run `ollama pull nomic-embed-text`
 
