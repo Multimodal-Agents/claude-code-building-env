@@ -14,8 +14,14 @@ git_clones/
 claude_code_custom/claude-code/
 scripts_and_skills/claude_skills/skills/
 
+# --- Reference code clones (external packages used as reference) ---
+agent-chef-claude-code/
+
 # --- Reference documentation dumps (large, regeneratable) ---
 basic_reference_documentation_library/
+
+# --- Local data (parquet DBs, embeddings — machine-specific, never commit) ---
+local_data/
 
 # ============================================================
 # Standard ignores

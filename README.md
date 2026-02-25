@@ -1,8 +1,8 @@
-# claude-local-layer
+# claude-code-building-environment
 
 > Personal AI development abstraction layer built on top of [Claude Code CLI](https://github.com/anthropics/claude-code).
 
-Run a local LLM (Ollama `gpt-oss:20b` on Titan XP) through Claude Code's full agentic tooling —
+Run a local LLM (Ollama `gpt-oss:20b` - 14 GB) through Claude Code's full agentic tooling —
 with your own skills, plugins, and hooks that survive every upstream update.
 
 ---

@@ -31,10 +31,20 @@ claude_code_building_env/
 ├── scripts_and_skills/
 │   ├── claude_scripts/
 │   │   └── run_claude.ps1          # ← Main launcher / entry point
+│   ├── data/                       # Data layer (parquet DB, embeddings, generators)
+│   │   ├── prompt_store.py         # CRUD for prompts + conversations (Unsloth/ShareGPT)
+│   │   ├── embeddings.py           # nomic-embed-text via Ollama + cosine search
+│   │   ├── dataset_generator.py    # Lite agent-chef: docs → training conversations
+│   │   └── web_search.py           # DuckDuckGo search wrapper
 │   └── claude_skills/
 │       ├── skills/                 # Anthropic official skills reference (git-ignored)
 │       ├── blues_skills/           # Custom domain-specific skills
 │       └── template_skills/        # Skill scaffolding templates
+├── .claude/
+│   └── commands/                   # Slash commands: /prompt-list /generate-dataset /parse-codebase /web-search
+├── local_data/                     # Runtime parquet files (git-ignored, machine-local)
+│   ├── prompts/                    # Prompt + conversation datasets
+│   └── embeddings/                 # Embedding vectors for semantic search
 ├── claude_code_custom/
 │   └── claude-code/                # Upstream Anthropic repo (reference, ignored by git)
 │       └── plugins/                # Official plugin examples & patterns
@@ -58,6 +68,8 @@ official extension surface:
 | **Hooks**      | Plugin `hooks.json` files | Pre/post tool intercepts |
 | **CLAUDE.md**  | Here + per-project | Session-level context injection |
 | **Launcher**   | `run_claude.ps1` | Environment setup, model routing |
+| **Data Layer** | `scripts_and_skills/data/` | Parquet prompt DB, embeddings, dataset generator, web search |
+| **Commands**   | `.claude/commands/` | Slash commands usable in any session |
 
 This layer works with **any future version** of the Claude Code CLI.
 
@@ -68,7 +80,19 @@ This layer works with **any future version** of the Claude Code CLI.
 | Skill | Path | What it does |
 |-------|------|-------------|
 | <!-- blues-terminal-execution | `scripts_and_skills/claude_skills/blues_skills/skills/blues-terminal-execution/` | Safe terminal command patterns (disabled — gpt-oss:20b handles this natively; re-enable if small models are added) --> |
-| (add more as built) | | |
+| **prompt-manager** | `scripts_and_skills/claude_skills/blues_skills/skills/prompt-manager/` | Store/search/export prompts and conversations via PromptStore + EmbeddingStore |
+| **code-parser** | `scripts_and_skills/claude_skills/blues_skills/skills/code-parser/` | Surgical codebase reading protocol — single tree scan, mental map, targeted reads only |
+
+---
+
+## Slash Commands
+
+| Command | File | What it does |
+|---------|------|-------------|
+| `/prompt-list` | `.claude/commands/prompt-list.md` | Browse, search, and export prompt datasets |
+| `/generate-dataset` | `.claude/commands/generate-dataset.md` | Convert files/dirs into ShareGPT training conversations |
+| `/parse-codebase` | `.claude/commands/parse-codebase.md` | Intelligent codebase understanding with minimal token usage |
+| `/web-search` | `.claude/commands/web-search.md` | DuckDuckGo search for local model sessions |
 
 ---
 
