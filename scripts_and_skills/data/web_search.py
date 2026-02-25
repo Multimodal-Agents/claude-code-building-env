@@ -26,10 +26,15 @@ from typing import List, Dict, Optional
 logger = logging.getLogger(__name__)
 
 try:
-    from duckduckgo_search import DDGS
+    # Package was renamed from duckduckgo_search to ddgs
+    from ddgs import DDGS
     HAS_DDG = True
 except ImportError:
-    HAS_DDG = False
+    try:
+        from duckduckgo_search import DDGS
+        HAS_DDG = True
+    except ImportError:
+        HAS_DDG = False
 
 
 def search(query: str,
@@ -43,7 +48,7 @@ def search(query: str,
         title, url, snippet
     """
     if not HAS_DDG:
-        return [{"error": "pip install duckduckgo-search", "title": "", "url": "", "snippet": ""}]
+        return [{"error": "pip install ddgs", "title": "", "url": "", "snippet": ""}]
 
     try:
         with DDGS() as ddg:

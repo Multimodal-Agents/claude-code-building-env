@@ -1,7 +1,6 @@
 # scripts_and_skills/data — local data layer
 # Parquet-based storage for prompts, conversations, embeddings
-from .prompt_store import PromptStore
-from .embeddings import EmbeddingStore
-from .dataset_generator import DatasetGenerator
+# Lazy imports — import directly from submodules to avoid sys.modules conflicts
+# e.g.  from scripts_and_skills.data.prompt_store import PromptStore
 
 __all__ = ["PromptStore", "EmbeddingStore", "DatasetGenerator"]

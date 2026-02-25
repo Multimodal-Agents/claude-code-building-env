@@ -93,7 +93,30 @@ class EmbeddingStore:
     # ── Ollama REST call ──────────────────────────────────────────────────────
 
     def embed_text(self, text: str) -> Optional[List[float]]:
-        """Call Ollama nomic-embed-text and return embedding vector."""
+        """Call Ollama nomic-embed-text and return embedding vector.
+
+        Tries the current /api/embed endpoint (Ollama 0.4+) first;
+        falls back to the legacy /api/embeddings endpoint.
+        /api/embed  : payload={model, input},  response={embeddings: [[...]]}
+        /api/embeddings: payload={model, prompt}, response={embedding: [...]}
+        """
+        try:
+            r = requests.post(
+                f"{OLLAMA_HOST}/api/embed",
+                json={"model": EMBED_MODEL, "input": text},
+                timeout=30,
+            )
+            r.raise_for_status()
+            data = r.json()
+            # /api/embed returns {"embeddings": [[float, ...]]}
+            embeddings = data.get("embeddings")
+            if embeddings and isinstance(embeddings, list) and len(embeddings) > 0:
+                return embeddings[0]
+            # Fallback: legacy {"embedding": [float, ...]}
+            return data.get("embedding")
+        except requests.RequestException:
+            pass
+        # Legacy fallback for older Ollama builds
         try:
             r = requests.post(
                 f"{OLLAMA_HOST}/api/embeddings",
@@ -136,7 +159,7 @@ class EmbeddingStore:
         Returns number of new embeddings added.
         """
         from .prompt_store import PromptStore
-        store = PromptStore(self.root.parent.parent)
+        store = PromptStore(self.root.parent)   # self.root = local_data/embeddings → parent = local_data/
         df = store.load(dataset_name)
         idx = self._load_index(dataset_name)
         existing_ids = set(idx["id"].tolist()) if not idx.empty else set()
@@ -201,7 +224,7 @@ class EmbeddingStore:
 
         # Fetch full rows from prompt store
         from .prompt_store import PromptStore
-        store = PromptStore(self.root.parent.parent)
+        store = PromptStore(self.root.parent)   # self.root = local_data/embeddings → parent = local_data/
         df = store.load(dataset_name)
 
         results = []

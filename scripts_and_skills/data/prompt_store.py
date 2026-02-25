@@ -172,6 +172,63 @@ class PromptStore:
         self._save(df, dataset_name)
         return ids
 
+    def upsert_batch(self, dataset_name: str, rows: List[Dict[str, Any]],
+                     split: str = "train", source: str = "batch") -> List[str]:
+        """
+        Upsert rows by matching on the 'input' field.
+        Existing rows with the same input are replaced; new inputs are appended.
+        Safe to call multiple times — idempotent.
+        """
+        ids = []
+        records = []
+        new_inputs = set()
+        for r in rows:
+            msgs = r.get("conversations")
+            inp = r.get("input", "")
+            out = r.get("output", "")
+            if not msgs and inp:
+                msgs = [{"from": "human", "value": inp}]
+                if out:
+                    msgs.append({"from": "gpt", "value": out})
+            row = self._row(dataset_name, r.get("split", split), msgs, inp, out,
+                            r.get("description", ""), r.get("source", source),
+                            r.get("tags"))
+            records.append(row)
+            ids.append(row["id"])
+            new_inputs.add(inp)
+        df = self._load_raw(dataset_name)
+        # Drop any existing rows whose input matches a row we're upserting
+        if not df.empty and new_inputs:
+            df = df[~df["input"].isin(new_inputs)]
+        df = pd.concat([df, pd.DataFrame(records)], ignore_index=True)
+        self._save(df, dataset_name)
+        return ids
+
+    def upsert_prompt(self, dataset_name: str,
+                      input_text: str,
+                      output_text: str = "",
+                      split: str = "train",
+                      description: str = "",
+                      source: str = "manual",
+                      tags: Optional[List[str]] = None) -> str:
+        """
+        Upsert a single prompt by input text.
+        Replaces any existing row with the same input; otherwise appends.
+        """
+        messages = []
+        if input_text:
+            messages.append({"from": "human", "value": input_text})
+        if output_text:
+            messages.append({"from": "gpt", "value": output_text})
+        row = self._row(dataset_name, split, messages or None,
+                        input_text, output_text, description, source, tags)
+        df = self._load_raw(dataset_name)
+        if not df.empty:
+            df = df[df["input"] != input_text]
+        df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+        self._save(df, dataset_name)
+        return row["id"]
+
     # ── Read ──────────────────────────────────────────────────────────────────
 
     def load(self, dataset_name: str,

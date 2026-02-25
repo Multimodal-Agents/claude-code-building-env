@@ -159,7 +159,7 @@ def seed():
     store = PromptStore()
 
     # Add the system prompt as its own entry
-    store.add_prompt(
+    store.upsert_prompt(
         dataset_name=DATASET,
         input_text="[SYSTEM PROMPT] Initialize CoreCoder agent mode",
         output_text=SYSTEM_PROMPT,
@@ -171,7 +171,7 @@ def seed():
 
     # Add all helper prompts
     for h in HELPERS:
-        store.add_prompt(
+        store.upsert_prompt(
             dataset_name=DATASET,
             input_text=h["input"],
             output_text="",  # These are input-only prompts (no expected output)
