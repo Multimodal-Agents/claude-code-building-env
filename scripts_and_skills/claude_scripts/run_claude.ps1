@@ -13,7 +13,7 @@ param(
 
 # ── Config ──────────────────────────────────────────────────
 $WORKSPACE      = "M:\claude_code_building_env"
-$SKILLS_ROOT    = "$WORKSPACE\powershell_scripts\claude_skills"
+$SKILLS_ROOT    = "$WORKSPACE\scripts_and_skills\claude_skills"
 $PROJECTS_ROOT  = "$WORKSPACE\claude_custom_projects_1"
 
 # ── Known local models ──────────────────────────────────────

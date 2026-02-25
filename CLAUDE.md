@@ -19,7 +19,7 @@ The engine (Claude Code CLI) is treated as an upgradeable dependency. This repo 
 
 - **Runtime**: Ollama (`http://localhost:11434`)
 - **Primary model**: `gpt-oss:20b`  — 14 GB, runs on Titan XP, fast local inference
-- **Entry point**: `powershell_scripts/claude_scripts/run_claude.ps1` (desktop shortcut)
+- **Entry point**: `scripts_and_skills/claude_scripts/run_claude.ps1` (desktop shortcut)
 
 ---
 
@@ -27,11 +27,12 @@ The engine (Claude Code CLI) is treated as an upgradeable dependency. This repo 
 
 ```
 claude_code_building_env/
-├── powershell_scripts/
+├── assets/                         # Icons and static media
+├── scripts_and_skills/
 │   ├── claude_scripts/
 │   │   └── run_claude.ps1          # ← Main launcher / entry point
 │   └── claude_skills/
-│       ├── skills/                 # Anthropic official skills reference
+│       ├── skills/                 # Anthropic official skills reference (git-ignored)
 │       ├── blues_skills/           # Custom domain-specific skills
 │       └── template_skills/        # Skill scaffolding templates
 ├── claude_code_custom/
@@ -52,7 +53,7 @@ official extension surface:
 
 | Extension Point | Location | Purpose |
 |----------------|----------|---------|
-| **Skills**     | `powershell_scripts/claude_skills/` | Teach Claude repeatable workflows |
+| **Skills**     | `scripts_and_skills/claude_skills/` | Teach Claude repeatable workflows |
 | **Plugins**    | `claude_code_custom/claude-code/plugins/` | Commands, agents, hooks |
 | **Hooks**      | Plugin `hooks.json` files | Pre/post tool intercepts |
 | **CLAUDE.md**  | Here + per-project | Session-level context injection |
@@ -66,7 +67,7 @@ This layer works with **any future version** of the Claude Code CLI.
 
 | Skill | Path | What it does |
 |-------|------|-------------|
-| blues-terminal-execution | `claude_skills/blues_skills/skills/blues-terminal-execution/` | Safe terminal command patterns |
+| <!-- blues-terminal-execution | `scripts_and_skills/claude_skills/blues_skills/skills/blues-terminal-execution/` | Safe terminal command patterns (disabled — gpt-oss:20b handles this natively; re-enable if small models are added) --> |
 | (add more as built) | | |
 
 ---
@@ -74,7 +75,8 @@ This layer works with **any future version** of the Claude Code CLI.
 ## Key Rules for This Session
 
 1. Default model is `gpt-oss:20b` via Ollama unless specified otherwise.
-2. New skills go in `powershell_scripts/claude_skills/` under an appropriate sub-collection.
+2. New skills go in `scripts_and_skills/claude_skills/` under an appropriate sub-collection.
 3. New plugins go in `claude_code_custom/claude-code/plugins/` for now; may move to own dir later.
 4. Project files are never committed to this repo — they live in `claude_custom_projects_1/`.
 5. The `claude_code_custom/claude-code/` directory is a reference clone — treat as read-only.
+6. Static media / icons live in `assets/`.

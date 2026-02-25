@@ -44,12 +44,13 @@ powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\powers
 
 ```
 .
+├── assets/                              # Icons and static media
 ├── CLAUDE.md                            # Global context injected at every session
-├── powershell_scripts/
+├── scripts_and_skills/
 │   ├── claude_scripts/
 │   │   └── run_claude.ps1               # Main entry point
 │   └── claude_skills/
-│       ├── skills/                      # Official Anthropic skills (reference)
+│       ├── skills/                      # Official Anthropic skills (reference, git-ignored)
 │       ├── blues_skills/                # Custom domain skills
 │       └── template_skills/             # Scaffold for new skills
 └── claude_code_custom/
@@ -61,6 +62,7 @@ powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\powers
 - `claude_custom_projects_1/` — active work product
 - `git_clones/` — third-party clones
 - `claude_code_custom/claude-code/` — upstream reference
+- `scripts_and_skills/claude_skills/skills/` — Anthropic skills reference clone
 - `basic_reference_documentation_library/` — large reference dumps
 
 ---

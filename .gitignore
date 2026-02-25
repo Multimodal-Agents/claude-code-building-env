@@ -12,7 +12,7 @@ git_clones/
 
 # --- Upstream Anthropic clones (have their own .git, not ours) ---
 claude_code_custom/claude-code/
-powershell_scripts/claude_skills/skills/
+scripts_and_skills/claude_skills/skills/
 
 # --- Reference documentation dumps (large, regeneratable) ---
 basic_reference_documentation_library/
