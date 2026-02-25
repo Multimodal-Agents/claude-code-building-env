@@ -35,7 +35,13 @@ claude_code_building_env/
 │   │   ├── prompt_store.py         # CRUD for prompts + conversations (Unsloth/ShareGPT)
 │   │   ├── embeddings.py           # nomic-embed-text via Ollama + cosine search
 │   │   ├── dataset_generator.py    # Lite agent-chef: docs → training conversations
-│   │   └── web_search.py           # DuckDuckGo search wrapper
+│   │   ├── web_search.py           # DuckDuckGo search wrapper
+│   │   └── seeds/                  # One-time dataset seed scripts
+│   └── model_manager/              # Ollama model + GGUF + LoRA lifecycle
+│       ├── ollama_api.py           # REST wrapper: list/create/delete/pull/embed
+│       ├── modelfile.py            # Modelfile builder (system prompt, params, adapters)
+│       ├── gguf_manager.py         # GGUF registry + HF→GGUF conversion + quantize
+│       └── lora_manager.py         # LoRA adapter registry + Ollama deployment
 │   └── claude_skills/
 │       ├── skills/                 # Anthropic official skills reference (git-ignored)
 │       ├── blues_skills/           # Custom domain-specific skills
@@ -44,7 +50,10 @@ claude_code_building_env/
 │   └── commands/                   # Slash commands: /prompt-list /generate-dataset /parse-codebase /web-search
 ├── local_data/                     # Runtime parquet files (git-ignored, machine-local)
 │   ├── prompts/                    # Prompt + conversation datasets
-│   └── embeddings/                 # Embedding vectors for semantic search
+│   ├── embeddings/                 # Embedding vectors for semantic search
+│   ├── modelfiles/                 # Saved Modelfile blueprints
+│   ├── gguf/                       # GGUF file registry (registry.parquet)
+│   └── lora/                       # LoRA adapter registry (registry.parquet)
 ├── claude_code_custom/
 │   └── claude-code/                # Upstream Anthropic repo (reference, ignored by git)
 │       └── plugins/                # Official plugin examples & patterns
@@ -93,6 +102,7 @@ This layer works with **any future version** of the Claude Code CLI.
 | `/generate-dataset` | `.claude/commands/generate-dataset.md` | Convert files/dirs into ShareGPT training conversations |
 | `/parse-codebase` | `.claude/commands/parse-codebase.md` | Intelligent codebase understanding with minimal token usage |
 | `/web-search` | `.claude/commands/web-search.md` | DuckDuckGo search for local model sessions |
+| `/model-manager` | `.claude/commands/model-manager.md` | Manage Ollama models, Modelfiles, GGUFs, and LoRA adapters |
 
 ---
 

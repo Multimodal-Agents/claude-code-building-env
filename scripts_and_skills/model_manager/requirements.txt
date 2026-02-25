@@ -1,0 +1,14 @@
+# model_manager dependencies
+# pip install -r scripts_and_skills/model_manager/requirements.txt
+
+pandas>=2.0
+pyarrow>=14.0
+requests>=2.28
+
+# For GGUF conversion + quantization (llama.cpp)
+# These are needed if you call convert_hf_to_gguf.py directly.
+# Install separately from the llama.cpp repo:
+#   pip install -r llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
+#
+# Key packages it needs:
+#   numpy, torch, transformers, sentencepiece, gguf
