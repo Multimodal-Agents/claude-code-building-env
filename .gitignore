@@ -7,6 +7,9 @@
 # --- User projects (work product, not part of the framework) ---
 claude_custom_projects_1/
 
+# --- Dataset kitchen (user-specific input files for dataset generation) ---
+dataset_kitchen/
+
 # --- Git clones of external repos ---
 git_clones/
 

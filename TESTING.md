@@ -111,7 +111,7 @@ python -m scripts_and_skills.model_manager.hf_download unsloth/gpt-oss-20b-GGUF 
 
 Launch: `claude --model corecoder:latest`
 
-- [ ] `/prompt-list` — shows corecoder-vscode-copilot dataset, offers search/export ⏳
+- [x] `/prompt-list` — shows corecoder-vscode-copilot dataset, offers search/export ✅
 - [ ] `/set-system` — lets you pick a prompt and apply it to an Ollama model ⏳
 - [ ] `/parse-codebase` — reads tree once, builds mental map, asks targeted questions ⏳
 - [ ] `/web-search Claude Code 2026` — returns DuckDuckGo results ⏳

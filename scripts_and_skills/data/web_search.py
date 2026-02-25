@@ -85,6 +85,31 @@ def format_results_text(results: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def fetch_url_text(url: str, timeout: int = 15, max_chars: int = 8000) -> str:
+    """
+    Fetch a web page and return its readable text content.
+    Strips HTML tags and collapses whitespace.
+    Returns empty string on failure.
+    """
+    try:
+        import requests as _req
+        import re
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"}
+        r = _req.get(url, timeout=timeout, headers=headers)
+        r.raise_for_status()
+        html = r.text
+        # Remove script/style blocks
+        html = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.DOTALL | re.IGNORECASE)
+        # Strip remaining tags
+        text = re.sub(r"<[^>]+>", " ", html)
+        # Collapse whitespace
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:max_chars]
+    except Exception as e:
+        logger.warning(f"Could not fetch {url}: {e}")
+        return ""
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import argparse

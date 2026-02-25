@@ -125,6 +125,9 @@ def chunk_document(path: Path, doc_type: Optional[str] = None) -> List[str]:
 
 # ── Ollama generation ─────────────────────────────────────────────────────────
 
+GEN_CTX = int(os.getenv("OLLAMA_GEN_CTX", "4096"))   # keep small — KV cache is the VRAM killer
+
+
 def _ollama_chat(messages: List[Dict[str, str]], model: str = GEN_MODEL) -> str:
     """Call Ollama /api/chat and return the assistant message content."""
     if not HAS_REQUESTS:
@@ -133,9 +136,10 @@ def _ollama_chat(messages: List[Dict[str, str]], model: str = GEN_MODEL) -> str:
         "model":    model,
         "messages": messages,
         "stream":   False,
-        "options":  {"temperature": 0.7},
+        "options":  {"temperature": 0.7, "num_ctx": GEN_CTX},
     }
-    r = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=120)
+    timeout = int(os.getenv("OLLAMA_GEN_TIMEOUT", "300"))
+    r = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=timeout)
     r.raise_for_status()
     return r.json()["message"]["content"].strip()
 
@@ -343,6 +347,85 @@ class DatasetGenerator:
                     results.append({"file": str(f), "error": str(e)})
         return results
 
+    def process_topic(self, topic: str, dataset_name: str,
+                      search_top: int = 5,
+                      context_file: Optional[str] = None,
+                      num_turns: int = 3,
+                      max_chunks_per_page: int = 5,
+                      split: str = "train") -> Dict:
+        """
+        Research a topic via web search, fetch each page's text, and generate
+        training conversations from the content.
+
+        context_file — optional path to a .py / .tex / .md file.
+            When provided, a snippet of that file is included in every generation
+            prompt so the model generates questions that relate the topic to that
+            specific code or document.  Useful for building targeted datasets like
+            "how does the Ollama API work, in the context of ollama_interface.py".
+        """
+        from .web_search import search, fetch_url_text
+
+        # Build a context hint from the reference file if provided
+        context_hint = ""
+        if context_file:
+            ctx_path = Path(context_file)
+            if ctx_path.exists():
+                ctx_text = ctx_path.read_text(encoding="utf-8", errors="replace")[:1500]
+                context_hint = (
+                    f"The research relates to the following file ({ctx_path.name}):\n\n"
+                    f"{ctx_text}\n\n"
+                    f"Generate questions that explore how the topic applies to or "
+                    f"interacts with this code/document."
+                )
+                logger.info(f"Context file loaded: {ctx_path.name}")
+            else:
+                logger.warning(f"Context file not found: {context_file}")
+
+        logger.info(f"Searching: '{topic}' (top {search_top})")
+        results = search(topic, top=search_top)
+        results = [r for r in results if not r.get("error") and r.get("url")]
+
+        stats = {
+            "topic":            topic,
+            "pages_found":      len(results),
+            "pages_processed":  0,
+            "conversations":    0,
+            "failed":           0,
+        }
+
+        for r in results:
+            url   = r["url"]
+            title = r.get("title", url)
+            logger.info(f"  Fetching: {title[:70]}")
+
+            page_text = fetch_url_text(url)
+            if not page_text:
+                stats["failed"] += 1
+                continue
+
+            chunks = chunk_plain(page_text)[:max_chunks_per_page]
+            stats["pages_processed"] += 1
+
+            for i, chunk in enumerate(chunks):
+                guided = f"{context_hint}\n\n---\n\n{chunk}" if context_hint else chunk
+                convs = generate_qa_conversation(guided, "plain", num_turns, self.model)
+                if convs:
+                    self.store.add_conversation(
+                        dataset_name, convs,
+                        split=split,
+                        description=f"Web: {title[:80]} chunk {i+1}",
+                        source=url,
+                        tags=["web-research", "qa", topic[:30]],
+                    )
+                    stats["conversations"] += 1
+                else:
+                    stats["failed"] += 1
+
+        logger.info(f"Topic done: {stats['pages_processed']} pages, "
+                    f"{stats['conversations']} conversations, "
+                    f"{stats['failed']} failed")
+        return stats
+
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
@@ -351,37 +434,63 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
 
-    parser = argparse.ArgumentParser(description="DatasetGenerator CLI")
-    parser.add_argument("file",          help="File or directory to process")
-    parser.add_argument("--dataset",     required=True, help="Dataset name to save to")
-    parser.add_argument("--turns",       type=int, default=3,  help="QA turns per chunk")
-    parser.add_argument("--chunks",      type=int, default=20, help="Max chunks per file")
-    parser.add_argument("--model",       default=GEN_MODEL,    help="Ollama model")
-    parser.add_argument("--split",       default="train")
-    parser.add_argument("--no-tests",    action="store_true",  help="Skip test generation")
-    parser.add_argument("--extensions",  nargs="*",            help="File extensions for dir mode")
+    parser = argparse.ArgumentParser(
+        description="DatasetGenerator CLI — file/dir mode or web research mode",
+        epilog=(
+            "File mode:  python -m ... my_file.py --dataset my-ds\n"
+            "Topic mode: python -m ... --topic 'Ollama API' --dataset my-ds\n"
+            "Guided:     python -m ... --topic 'Ollama API' --context-file ollama_interface.py --dataset my-ds"
+        ),
+    )
+    parser.add_argument("file",           nargs="?",           help="File or directory to process (omit when using --topic)")
+    parser.add_argument("--dataset",      required=True,       help="Dataset name to save to")
+    parser.add_argument("--turns",        type=int, default=3, help="QA turns per chunk")
+    parser.add_argument("--chunks",       type=int, default=20,help="Max chunks per file / per page in topic mode")
+    parser.add_argument("--model",        default=GEN_MODEL,   help="Ollama model")
+    parser.add_argument("--split",        default="train")
+    parser.add_argument("--no-tests",     action="store_true", help="Skip test/math conversation generation")
+    parser.add_argument("--extensions",   nargs="*",           help="File extensions for dir mode")
+    # Web research mode
+    parser.add_argument("--topic",        default=None,        help="Search topic — enables web research mode instead of file mode")
+    parser.add_argument("--search-top",   type=int, default=5, help="Number of search results to fetch in topic mode")
+    parser.add_argument("--context-file", default=None,        help="Reference file (.py/.tex/.md) to guide question generation in topic mode")
 
     args = parser.parse_args()
-    gen  = DatasetGenerator(model=args.model)
-    p    = Path(args.file)
 
-    if p.is_dir():
-        results = gen.process_directory(
-            str(p), args.dataset,
-            extensions=args.extensions,
+    if not args.file and not args.topic:
+        parser.error("Provide either a file/directory argument or --topic for web research mode.")
+
+    gen = DatasetGenerator(model=args.model)
+
+    if args.topic:
+        result = gen.process_topic(
+            args.topic, args.dataset,
+            search_top=args.search_top,
+            context_file=args.context_file,
             num_turns=args.turns,
-            max_chunks=args.chunks,
-            generate_tests=not args.no_tests,
-            split=args.split,
-        )
-        total_convs = sum(r.get("conversations", 0) for r in results)
-        print(f"\nProcessed {len(results)} files → {total_convs} conversations in '{args.dataset}'")
-    else:
-        result = gen.process_file(
-            str(p), args.dataset,
-            num_turns=args.turns,
-            max_chunks=args.chunks,
-            generate_tests=not args.no_tests,
+            max_chunks_per_page=args.chunks,
             split=args.split,
         )
         print(f"\nResult: {json.dumps(result, indent=2)}")
+    else:
+        p = Path(args.file)
+        if p.is_dir():
+            results = gen.process_directory(
+                str(p), args.dataset,
+                extensions=args.extensions,
+                num_turns=args.turns,
+                max_chunks=args.chunks,
+                generate_tests=not args.no_tests,
+                split=args.split,
+            )
+            total_convs = sum(r.get("conversations", 0) for r in results)
+            print(f"\nProcessed {len(results)} files → {total_convs} conversations in '{args.dataset}'")
+        else:
+            result = gen.process_file(
+                str(p), args.dataset,
+                num_turns=args.turns,
+                max_chunks=args.chunks,
+                generate_tests=not args.no_tests,
+                split=args.split,
+            )
+            print(f"\nResult: {json.dumps(result, indent=2)}")
