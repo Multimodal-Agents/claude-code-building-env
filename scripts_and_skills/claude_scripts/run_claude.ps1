@@ -22,62 +22,31 @@ $LOCAL_MODELS = @{
     "claude-sonnet" = "API    — Anthropic cloud (needs key)"
 }
 
-# ── Banner ───────────────────────────────────────────────────
-function Show-Banner {
-    Clear-Host
-    Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║      LOCAL AI DEV ENVIRONMENT  v0.1.0        ║" -ForegroundColor Cyan
-    Write-Host "  ║      Abstraction Layer  •  Claude Code CLI    ║" -ForegroundColor Cyan
-    Write-Host "  ╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
-    Write-Host ""
-}
-
 # ── List available models ────────────────────────────────────
 function Show-Models {
-    Write-Host "  Available models:" -ForegroundColor Yellow
+    Write-Host "Models:" -ForegroundColor Yellow
     foreach ($m in $LOCAL_MODELS.GetEnumerator()) {
-        Write-Host ("    {0,-20} {1}" -f $m.Key, $m.Value) -ForegroundColor White
+        Write-Host ("  {0,-20} {1}" -f $m.Key, $m.Value)
     }
-    Write-Host ""
-}
-
-# ── Resolve working directory ────────────────────────────────
-function Resolve-WorkDir {
-    if ($Project -ne "") {
-        $p = Join-Path $PROJECTS_ROOT $Project
-        if (Test-Path $p) { return $p }
-        Write-Host "  [WARN] Project '$Project' not found — using workspace root." -ForegroundColor Yellow
-    }
-    return $WORKSPACE
-}
-
-# ── Build the claude CLI argument list ───────────────────────
-function Build-ClaudeArgs {
-    $a = @("--model", $Model)
-    if ($Debug) { $a += "--debug" }
-    return $a
+    exit 0
 }
 
 # ═══════════════════════════════════════════════════════════
 #  MAIN
 # ═══════════════════════════════════════════════════════════
-Show-Banner
+if ($ListModels) { Show-Models }
 
-if ($ListModels) { Show-Models; exit 0 }
-
-# Show active config
-$WorkDir = Resolve-WorkDir
-Write-Host ""
-Write-Host "  Model    : $Model"    -ForegroundColor Cyan
-Write-Host "  Work dir : $WorkDir"  -ForegroundColor Cyan
-Write-Host "  Skills   : $SKILLS_ROOT" -ForegroundColor Cyan
-Write-Host ""
+# Resolve working directory
+$WorkDir = $WORKSPACE
+if ($Project -ne "") {
+    $p = Join-Path $PROJECTS_ROOT $Project
+    if (Test-Path $p) { $WorkDir = $p }
+    else { Write-Warning "Project '$Project' not found — using workspace root." }
+}
 
 Set-Location -Path $WorkDir
 
-$cliArgs = Build-ClaudeArgs
-Write-Host "  Launching: claude $($cliArgs -join ' ')" -ForegroundColor DarkGray
-Write-Host ""
+$cliArgs = @("--model", $Model)
+if ($Debug) { $cliArgs += "--debug" }
 
 claude @cliArgs
