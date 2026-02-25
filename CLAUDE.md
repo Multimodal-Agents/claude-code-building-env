@@ -41,7 +41,8 @@ claude_code_building_env/
 │       ├── ollama_api.py           # REST wrapper: list/create/delete/pull/embed
 │       ├── modelfile.py            # Modelfile builder (system prompt, params, adapters)
 │       ├── gguf_manager.py         # GGUF registry + HF→GGUF conversion + quantize
-│       └── lora_manager.py         # LoRA adapter registry + Ollama deployment
+│       ├── lora_manager.py         # LoRA adapter registry + Ollama deployment
+│       └── hf_download.py          # Download GGUFs from HuggingFace Hub
 │   └── claude_skills/
 │       ├── skills/                 # Anthropic official skills reference (git-ignored)
 │       ├── blues_skills/           # Custom domain-specific skills
@@ -103,6 +104,7 @@ This layer works with **any future version** of the Claude Code CLI.
 | `/parse-codebase` | `.claude/commands/parse-codebase.md` | Intelligent codebase understanding with minimal token usage |
 | `/web-search` | `.claude/commands/web-search.md` | DuckDuckGo search for local model sessions |
 | `/model-manager` | `.claude/commands/model-manager.md` | Manage Ollama models, Modelfiles, GGUFs, and LoRA adapters |
+| `/set-system` | `.claude/commands/set-system.md` | Interactively change a model's system prompt from a prompt set or free text |
 
 ---
 
