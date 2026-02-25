@@ -53,7 +53,7 @@ pip install huggingface_hub
 Or install everything in one shot:
 
 ```powershell
-pip install pandas pyarrow numpy requests "duckduckgo-search>=6.0" huggingface_hub
+pip install pandas pyarrow numpy requests ddgs huggingface_hub
 ```
 
 ---
@@ -252,6 +252,8 @@ or quantize existing GGUFs with `llama-quantize`.
 **`Connection refused` on port 11434** — Ollama isn't running. Start it: `ollama serve` or launch Ollama Desktop.
 
 **`ModuleNotFoundError: pandas`** — Activate the venv first (`.\venv\Scripts\Activate.ps1`), then run `pip install -r scripts_and_skills/data/requirements.txt`
+
+**Web search returns no results or import error** — The package was renamed: `pip install ddgs`
 
 **`nomic-embed-text not found`** — Run `ollama pull nomic-embed-text`
 

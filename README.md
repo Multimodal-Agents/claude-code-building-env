@@ -39,7 +39,7 @@ This clones two Anthropic reference repos into their expected locations:
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install pandas pyarrow numpy requests "duckduckgo-search>=6.0" huggingface_hub
+pip install pandas pyarrow numpy requests ddgs huggingface_hub
 ```
 
 ### 4. Launch
