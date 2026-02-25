@@ -189,8 +189,8 @@ class PromptStore:
         return row.iloc[0].to_dict() if not row.empty else None
 
     def search(self, dataset_name: str, query: str,
-               columns: Optional[List[str]] = None) -> "pd.DataFrame":
-        """Simple case-insensitive keyword search across text columns."""
+               columns: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Simple case-insensitive keyword search across text columns. Returns list of dicts."""
         df = self._load_raw(dataset_name)
         cols = columns or ["input", "output", "description", "conversations", "tags"]
         cols = [c for c in cols if c in df.columns]
@@ -198,7 +198,7 @@ class PromptStore:
         mask = df[cols].apply(
             lambda col: col.astype(str).str.lower().str.contains(q, na=False)
         ).any(axis=1)
-        return df[mask].reset_index(drop=True)
+        return df[mask].reset_index(drop=True).to_dict("records")
 
     def list_datasets(self) -> List[Dict[str, Any]]:
         """List all datasets with row counts and splits."""

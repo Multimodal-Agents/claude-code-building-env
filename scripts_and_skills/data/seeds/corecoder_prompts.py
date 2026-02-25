@@ -182,7 +182,7 @@ def seed():
         )
 
     stats = store.stats(DATASET)
-    print(f"[corecoder seed] dataset='{DATASET}' rows={stats.get('total', 0)}")
+    print(f"[corecoder seed] dataset='{DATASET}' rows={stats.get('total_rows', 0)}")
     print("Done. Run embeddings next:")
     print(f"  python -m scripts_and_skills.data.embeddings embed {DATASET}")
 

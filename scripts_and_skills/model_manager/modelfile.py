@@ -94,11 +94,18 @@ class ModelfileBuilder:
         """
         Pull the existing Modelfile from Ollama and load it so you
         can modify it in place (e.g. swap the system prompt).
+
+        The FROM line is always reset to the named model reference so that
+        create_model() works correctly (Ollama rejects blob-path FROM lines
+        on /api/create).
         """
         api = OllamaAPI()
         info = api.show(model_name)
         raw = info.get("modelfile", "")
-        return cls.parse(raw)
+        b = cls.parse(raw)
+        # Always use the named reference, not the raw blob path from 'show'
+        b._from = model_name
+        return b
 
     @classmethod
     def from_file(cls, path: str | Path) -> "ModelfileBuilder":
@@ -264,17 +271,43 @@ class ModelfileBuilder:
     def create_model(self, model_name: str, stream: bool = True) -> None:
         """
         Push this Modelfile to Ollama and create the model.
+        Uses the Ollama 0.17+ structured API (from/system/parameters fields).
         Streams progress by default.
         """
-        content = self.build()
+        if not self._from:
+            raise ValueError("FROM is required — call set_base() or use a factory")
+
+        # Build parameters dict (collapse stop tokens into a list value)
+        params = {}
+        for key, values in self._parameters.items():
+            if key == "stop":
+                params["stop"] = values  # Ollama accepts a list for stop
+            elif values:
+                # Try to cast numeric values
+                v = values[0]
+                try:
+                    params[key] = int(v) if "." not in v else float(v)
+                except (ValueError, TypeError):
+                    params[key] = v
+
+        response = self._api.create(
+            name=model_name,
+            from_model=self._from,
+            system=self._system,
+            parameters=params or None,
+            template=self._template or "",
+            messages=[("MESSAGE %s %s" % (r, c)) for r, c in self._messages] if self._messages else None,
+            adapters=None,  # LoRA adapter deployment handled in lora_manager
+            stream=stream,
+        )
         print(f"Creating model '{model_name}'...")
-        response = self._api.create(model_name, content, stream=stream)
         if stream:
             for line in response.iter_lines():
                 if line:
                     obj = json.loads(line)
                     status = obj.get("status", "")
-                    print(f"  {status}")
+                    if status:
+                        print(f"  {status}")
         else:
             print(response)
         print(f"Model '{model_name}' created.")

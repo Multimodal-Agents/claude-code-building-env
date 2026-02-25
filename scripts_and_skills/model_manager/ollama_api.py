@@ -52,7 +52,15 @@ class OllamaAPI:
             timeout=self.timeout,
             stream=stream,
         )
-        r.raise_for_status()
+        if not r.ok:
+            try:
+                detail = r.json()
+            except Exception:
+                detail = r.text
+            raise requests.HTTPError(
+                f"{r.status_code} {r.reason} — Ollama said: {detail}",
+                response=r,
+            )
         if stream:
             return r  # caller iterates line by line
         return r.json()
@@ -87,16 +95,47 @@ class OllamaAPI:
     # Model lifecycle
     # ------------------------------------------------------------------
 
-    def create(self, name: str, modelfile: str, stream: bool = False) -> dict | requests.Response:
+    def create(
+        self,
+        name: str,
+        from_model: str = "",
+        system: str = "",
+        parameters: dict | None = None,
+        template: str = "",
+        messages: list | None = None,
+        adapters: dict | None = None,
+        quantize: str = "",
+        stream: bool = True,
+        # Legacy Modelfile string (Ollama <0.5) — kept for reference/saving only
+        modelfile: str = "",
+    ) -> dict | "requests.Response":
         """
-        Create (or recreate) a model from a Modelfile string.
+        Create (or recreate) a model using the Ollama 0.17+ structured API.
 
-        Args:
-            name:      target model name (e.g. "mymodel:latest")
-            modelfile: full Modelfile content as a string
-            stream:    if True returns a streaming response for progress tracking
+        Ollama 0.17 removed the 'modelfile' string field and replaced it with
+        direct structured parameters:
+          - from:       base model name  (e.g. 'gpt-oss:20b')
+          - system:     system prompt text
+          - parameters: dict of model params  (temperature, num_ctx, stop, ...)
+          - template:   prompt template string
+          - adapters:   {filename: sha256} for LoRA adapters
+          - quantize:   quantization type for on-the-fly quantization
         """
-        payload = {"model": name, "modelfile": modelfile, "stream": stream}
+        payload: dict = {"model": name, "stream": stream}
+        if from_model:
+            payload["from"] = from_model
+        if system:
+            payload["system"] = system
+        if parameters:
+            payload["parameters"] = parameters
+        if template:
+            payload["template"] = template
+        if messages:
+            payload["messages"] = messages
+        if adapters:
+            payload["adapters"] = adapters
+        if quantize:
+            payload["quantize"] = quantize
         return self._post("/api/create", payload, stream=stream)
 
     def copy(self, source: str, destination: str) -> dict:
