@@ -1,7 +1,7 @@
 # ============================================================
 #  run_claude.ps1  —  Main entry point for the local AI stack
 #  Desktop shortcut target:
-#    powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\powershell_scripts\claude_scripts\run_claude.ps1"
+#    powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\scripts_and_skills\claude_scripts\run_claude.ps1"
 # ============================================================
 
 param(

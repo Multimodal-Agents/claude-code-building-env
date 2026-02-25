@@ -17,14 +17,14 @@ blues_skills/
 
 ### Local Installation
 ```powershell
-claude plugin marketplace add D:\PowerShell_Scripts\claude_skills\blues_skills
+claude plugin marketplace add D:\scripts_and_skills\claude_skills\blues_skills
 claude plugin install blues-core@blues-skills
 ```
 
 ### During Development
 ```powershell
 # Load specific skill directly while developing
-claude --plugin-dir D:\PowerShell_Scripts\claude_skills\blues_skills\skills\skill-name
+claude --plugin-dir D:\scripts_and_skills\claude_skills\blues_skills\skills\skill-name
 ```
 
 ## Skills Included
@@ -85,7 +85,7 @@ Best practices
 ### Testing Your Skills
 ```powershell
 # Test a single skill
-claude --plugin-dir D:\PowerShell_Scripts\claude_skills\blues_skills\skills\your-skill
+claude --plugin-dir D:\scripts_and_skills\claude_skills\blues_skills\skills\your-skill
 
 # Ask Claude to use it
 # Then inside Claude session, just mention the skill naturally

@@ -12,7 +12,7 @@ with your own skills, plugins, and hooks that survive every upstream update.
 Double-click the desktop shortcut **or** run directly:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\powershell_scripts\claude_scripts\run_claude.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "M:\claude_code_building_env\scripts_and_skills\claude_scripts\run_claude.ps1"
 ```
 
 | Flag | Default | Description |
