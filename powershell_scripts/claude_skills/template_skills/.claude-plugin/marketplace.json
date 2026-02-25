@@ -1,0 +1,22 @@
+{
+  "name": "my-custom-skills",
+  "owner": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "metadata": {
+    "description": "My custom skill marketplace",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "example-plugin",
+      "description": "An example plugin demonstrating custom skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/example-skill"
+      ]
+    }
+  ]
+}

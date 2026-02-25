@@ -1,0 +1,22 @@
+{
+  "name": "blues-skills",
+  "owner": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "metadata": {
+    "description": "Blues custom skill collection",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "blues-core",
+      "description": "Core Blues skills collection",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/blues-terminal-execution"
+      ]
+    }
+  ]
+}

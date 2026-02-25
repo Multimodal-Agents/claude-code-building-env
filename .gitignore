@@ -1,0 +1,100 @@
+# ============================================================
+# claude_code_building_env — main .gitignore
+# We track: launchers, plugins, skills, hooks, docs, config
+# We IGNORE: active projects, git clones, reference dumps
+# ============================================================
+
+# --- User projects (work product, not part of the framework) ---
+claude_custom_projects_1/
+
+# --- Git clones of external repos ---
+git_clones/
+
+# --- Upstream Anthropic clones (have their own .git, not ours) ---
+claude_code_custom/claude-code/
+powershell_scripts/claude_skills/skills/
+
+# --- Reference documentation dumps (large, regeneratable) ---
+basic_reference_documentation_library/
+
+# ============================================================
+# Standard ignores
+# ============================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+.venv/
+venv/
+env/
+.env
+.env.*
+pip-log.txt
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnp/
+.pnp.js
+
+# Logs
+*.log
+logs/
+
+# OS artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor artifacts
+.vscode/settings.json
+.vscode/launch.json
+.vscode/*.code-workspace
+*.swp
+*.swo
+*~
+.idea/
+
+# Secrets / credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+.secrets
+secrets/
+credentials/
+
+# Temp / cache
+tmp/
+temp/
+.cache/
+*.tmp
+*.bak
+*.orig
+
+# Compiled output
+*.exe
+*.dll
+*.class
+*.jar
+
+# Claude Code local session state (auto-generated)
+.clauderc
+.claude_session*
