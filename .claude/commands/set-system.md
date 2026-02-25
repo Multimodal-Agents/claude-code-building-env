@@ -75,6 +75,30 @@ After creation, tell the user:
 >  `claude --model <name>`
 >  Or restart this session with: `ollama run <name>`"
 
+### Reset to base model default (remove embedded system prompt)
+
+If the user says "remove the system prompt", "reset to default", or "go back to base":
+
+```python
+from scripts_and_skills.model_manager import ModelfileBuilder
+
+b = ModelfileBuilder.from_existing("corecoder:latest")  # or whatever model
+b.clear_system()   # removes SYSTEM instruction entirely
+b.create_model("corecoder:latest")  # overwrites with clean version
+```
+
+Or via CLI:
+```
+python -m scripts_and_skills.model_manager.modelfile create <model-name> \
+    --from <base-model> --reset-system
+```
+
+This rebuilds the model from the same base but with **no** SYSTEM line in the
+Modelfile, so it falls back to whatever the base model's own default is (usually
+a minimal "helpful assistant" prompt or nothing at all).
+
+---
+
 ### Optionally — save the Modelfile for later
 
 ```python

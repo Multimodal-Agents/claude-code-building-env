@@ -176,6 +176,14 @@ class ModelfileBuilder:
         self._system = system_prompt
         return self
 
+    def clear_system(self) -> "ModelfileBuilder":
+        """
+        Remove any embedded system prompt, falling back to the base model's
+        own default (or no system prompt if the base has none).
+        """
+        self._system = ""
+        return self
+
     def set_parameter(self, key: str, value) -> "ModelfileBuilder":
         key = key.lower()
         if key not in VALID_PARAMS:
@@ -301,6 +309,8 @@ def _cli():
     p_create.add_argument("model_name")
     p_create.add_argument("--from", dest="base", required=True, help="Base model or GGUF path")
     p_create.add_argument("--system", default="", help="System prompt text")
+    p_create.add_argument("--reset-system", action="store_true",
+                          help="Remove any embedded system prompt (restore base model default)")
     p_create.add_argument("--temperature", type=float, default=None)
     p_create.add_argument("--ctx", type=int, default=None)
     p_create.add_argument("--adapter", default=None, help="Path to LoRA adapter")
@@ -329,7 +339,9 @@ def _cli():
             b = ModelfileBuilder.from_gguf(args.base)
         else:
             b = ModelfileBuilder.from_base(args.base)
-        if args.system:
+        if args.reset_system:
+            b.clear_system()
+        elif args.system:
             b.set_system(args.system)
         if args.temperature is not None:
             b.set_parameter("temperature", args.temperature)
