@@ -118,6 +118,7 @@ Available inside any `claude` session:
 | `/prompt-list` | Browse, search, and export the prompt dataset |
 | `/set-system` | Change any Ollama model's system prompt interactively |
 | `/generate-dataset` | Convert files/dirs into ShareGPT training conversations |
+| `/show-dataset` | View rows from any saved dataset (zero-token, raw output) |
 | `/parse-codebase` | Smart codebase exploration with minimal token usage |
 | `/web-search` | DuckDuckGo search (useful for local model sessions) |
 | `/model-manager` | Manage models, GGUFs, Modelfiles, and LoRA adapters |

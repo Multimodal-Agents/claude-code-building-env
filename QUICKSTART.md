@@ -222,6 +222,7 @@ or quantize existing GGUFs with `llama-quantize`.
 | `/prompt-list` | Browse and search the prompt database |
 | `/set-system` | Change the system prompt of any Ollama model interactively |
 | `/generate-dataset` | Convert docs/code files into ShareGPT training conversations |
+| `/show-dataset` | View rows from any saved dataset (zero-token, raw output) |
 | `/parse-codebase` | Smart codebase exploration (minimal token usage) |
 | `/web-search` | DuckDuckGo search (useful for local model sessions) |
 | `/model-manager` | Manage models, GGUFs, Modelfiles, LoRA adapters |

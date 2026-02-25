@@ -48,7 +48,7 @@ claude_code_building_env/
 │       ├── blues_skills/           # Custom domain-specific skills
 │       └── template_skills/        # Skill scaffolding templates
 ├── .claude/
-│   └── commands/                   # Slash commands: /prompt-list /generate-dataset /parse-codebase /web-search
+│   └── commands/                   # Slash commands: /prompt-list /generate-dataset /show-dataset /parse-codebase /web-search
 ├── local_data/                     # Runtime parquet files (git-ignored, machine-local)
 │   ├── prompts/                    # Prompt + conversation datasets
 │   ├── embeddings/                 # Embedding vectors for semantic search
@@ -105,6 +105,7 @@ This layer works with **any future version** of the Claude Code CLI.
 | `/web-search` | `.claude/commands/web-search.md` | DuckDuckGo search for local model sessions |
 | `/model-manager` | `.claude/commands/model-manager.md` | Manage Ollama models, Modelfiles, GGUFs, and LoRA adapters |
 | `/set-system` | `.claude/commands/set-system.md` | Interactively change a model's system prompt from a prompt set or free text |
+| `/show-dataset` | `.claude/commands/show-dataset.md` | View rows from any saved dataset — runs directly, zero-token overhead |
 
 ---
 
