@@ -42,16 +42,6 @@ function Show-Models {
     Write-Host ""
 }
 
-# ── Check Ollama is running ──────────────────────────────────
-function Test-Ollama {
-    try {
-        $null = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -TimeoutSec 2 -ErrorAction Stop
-        return $true
-    } catch {
-        return $false
-    }
-}
-
 # ── Resolve working directory ────────────────────────────────
 function Resolve-WorkDir {
     if ($Project -ne "") {
@@ -75,19 +65,6 @@ function Build-ClaudeArgs {
 Show-Banner
 
 if ($ListModels) { Show-Models; exit 0 }
-
-# Check Ollama when using a local model
-if ($Model -notlike "*claude*") {
-    Write-Host "  Checking Ollama..." -ForegroundColor DarkGray -NoNewline
-    if (Test-Ollama) {
-        Write-Host " running ✓" -ForegroundColor Green
-    } else {
-        Write-Host " NOT FOUND" -ForegroundColor Red
-        Write-Host "  Start Ollama first:  ollama serve" -ForegroundColor Yellow
-        Write-Host ""
-        Read-Host "  Press Enter to try anyway or Ctrl+C to abort"
-    }
-}
 
 # Show active config
 $WorkDir = Resolve-WorkDir
