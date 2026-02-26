@@ -118,6 +118,26 @@ This layer works with **any future version** of the Claude Code CLI.
 
 ---
 
+## Permission / Auto-Approve Mode
+
+To skip all tool confirmation prompts (full auto mode), launch with:
+```bash
+claude --dangerously-skip-permissions
+```
+Or add it permanently to the launchers (`run_claude.ps1 -Ollama` / `run_claude.sh --ollama`).
+
+For granular control without the flag, create `.claude/settings.json`:
+```json
+{
+  "permissions": {
+    "allow": ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "Glob(*)", "Grep(*)", "WebFetch(*)", "WebSearch(*)"]
+  }
+}
+```
+See `claude_code_custom/claude-code/examples/settings/` for full schema and examples.
+
+---
+
 ## Key Rules for This Session
 
 1. Default model is `gpt-oss:20b` via Ollama unless specified otherwise.
