@@ -199,8 +199,13 @@ if __name__ == "__main__":
                         default=["harm"],
                         help=f"Categories to check: {ALL_CATEGORIES}")
     parser.add_argument("--rag",        nargs=2,
-                        metavar=("QUERY", "CONTEXT"),
-                        help="RAG mode: provide query and context/response")
+                        metavar=("TEXT1", "TEXT2"),
+                        help=(
+                            "RAG mode: two text args interpreted per category — "
+                            "relevance: (query, context); "
+                            "groundedness: (response, context); "
+                            "answer_relevance: (query, response)"
+                        ))
     parser.add_argument("--model",      default=MODERATION_MODEL,
                         help="Ollama model to use for classification")
     parser.add_argument("--json",       action="store_true",
@@ -216,20 +221,22 @@ if __name__ == "__main__":
     any_flagged = False
 
     if args.rag:
-        query, context = args.rag
+        text1, text2 = args.rag
         for cat in (args.categories or ["relevance"]):
             if cat == "relevance":
-                val = clf.check_relevance(query, context)
+                # text1=query, text2=context
+                val = clf.check_relevance(text1, text2)
                 results[cat] = val
-                # For RAG, True = good (not flagged in the harmful sense)
             elif cat == "groundedness":
-                val = clf.check_groundedness(query, context)  # reuse fields
+                # text1=response, text2=context
+                val = clf.check_groundedness(text1, text2)
                 results[cat] = val
             elif cat == "answer_relevance":
-                val = clf.check_answer_relevance(query, context)
+                # text1=query, text2=response
+                val = clf.check_answer_relevance(text1, text2)
                 results[cat] = val
             else:
-                val = clf.classify_content(f"Query: {query}\n\nContext: {context}", cat)
+                val = clf.classify_content(f"Query: {text1}\n\nContext: {text2}", cat)
                 results[cat] = val
                 if val:
                     any_flagged = True

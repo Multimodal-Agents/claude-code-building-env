@@ -32,7 +32,7 @@ python -m scripts_and_skills.data.web_search "nomic-embed-text ollama model" --t
 
 ## Notes
 
-- Requires: `pip install duckduckgo-search`
+- Requires: `pip install ddgs` (package was renamed from `duckduckgo-search`)
 - No API key needed — uses DuckDuckGo's free API
 - Results are returned as plain text snippets, not full page content
 - For full page content, follow up with a specific URL fetch using curl or requests

@@ -45,10 +45,10 @@ python -m scripts_and_skills.data.dataset_generator \
 
 **Any mode with content moderation:**
 ```bash
-python -m scripts_and_skills.data.dataset_generator \
-    <file_or_--topic_or_--arxiv> \
-    --dataset <dataset-name> \
-    --moderate
+# Works with any mode — just add --moderate to the command
+python -m scripts_and_skills.data.dataset_generator my_file.py --dataset my-ds --moderate
+python -m scripts_and_skills.data.dataset_generator --topic "ML" --dataset my-ds --moderate
+python -m scripts_and_skills.data.dataset_generator --arxiv "ML" --dataset my-ds --moderate
 ```
 `--moderate` passes every generated GPT response through `granite3-guardian:8b`
 harm detection. Flagged conversations are skipped and counted as failed.
