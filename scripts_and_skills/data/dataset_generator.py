@@ -275,7 +275,8 @@ class DatasetGenerator:
                      num_turns: int = 3,
                      max_chunks: int = 20,
                      generate_tests: bool = True,
-                     split: str = "train") -> Dict:
+                     split: str = "train",
+                     moderate: bool = False) -> Dict:
         """
         Process a single document file into training conversations.
         Returns summary of what was generated.
@@ -283,6 +284,10 @@ class DatasetGenerator:
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
+
+        if moderate:
+            from .classifier import Classifier
+            clf = Classifier()
 
         doc_type = detect_doc_type(path)
         chunks = chunk_document(path, doc_type)[:max_chunks]
@@ -298,6 +303,14 @@ class DatasetGenerator:
             # Main Q&A conversation
             convs = generate_qa_conversation(chunk, doc_type, num_turns, self.model)
             if convs:
+                if moderate:
+                    gpt_responses = " ".join(
+                        c["value"] for c in convs if c.get("from") == "gpt"
+                    )
+                    if clf.check_harm(gpt_responses):
+                        logger.warning(f"  Moderation blocked chunk {i+1} of {path.name}")
+                        stats["failed"] += 1
+                        continue
                 self.store.add_conversation(
                     dataset_name, convs,
                     split=split,
@@ -347,12 +360,78 @@ class DatasetGenerator:
                     results.append({"file": str(f), "error": str(e)})
         return results
 
+    def process_arxiv(self, query: str, dataset_name: str,
+                      max_results: int = 5,
+                      num_turns: int = 3,
+                      split: str = "train",
+                      moderate: bool = False) -> Dict:
+        """
+        Search ArXiv for papers matching `query`, generate QA conversations
+        from each paper's text, and store them in the PromptStore.
+
+        Returns: {"query": str, "papers_found": int, "conversations": int, "failed": int}
+        """
+        from .arxiv_crawler import ArxivCrawler
+
+        crawler = ArxivCrawler()
+        papers  = crawler.search_papers(query, max_results=max_results)
+
+        stats = {
+            "query":          query,
+            "papers_found":   len(papers),
+            "conversations":  0,
+            "failed":         0,
+        }
+
+        if moderate:
+            from .classifier import Classifier
+            clf = Classifier()
+
+        for paper in papers:
+            title = paper.get("title", "untitled")
+            logger.info(f"  Processing: {title[:70]}")
+            text = crawler.fetch_paper_text(paper)
+            if not text:
+                stats["failed"] += 1
+                continue
+
+            chunks = chunk_plain(text)
+            for i, chunk in enumerate(chunks):
+                convs = generate_qa_conversation(chunk, "plain", num_turns, self.model)
+                if not convs:
+                    stats["failed"] += 1
+                    continue
+
+                if moderate:
+                    gpt_responses = " ".join(
+                        c["value"] for c in convs if c.get("from") == "gpt"
+                    )
+                    if clf.check_harm(gpt_responses):
+                        logger.warning(f"  Moderation blocked conversation from: {title[:50]}")
+                        stats["failed"] += 1
+                        continue
+
+                self.store.add_conversation(
+                    dataset_name, convs,
+                    split=split,
+                    description=f"ArXiv: {title[:80]} chunk {i+1}",
+                    source=paper.get("arxiv_url", query),
+                    tags=["arxiv", "qa", query[:30]] + paper.get("categories", [])[:2],
+                )
+                stats["conversations"] += 1
+
+        logger.info(f"ArXiv done: {stats['papers_found']} papers, "
+                    f"{stats['conversations']} conversations, "
+                    f"{stats['failed']} failed")
+        return stats
+
     def process_topic(self, topic: str, dataset_name: str,
                       search_top: int = 5,
                       context_file: Optional[str] = None,
                       num_turns: int = 3,
                       max_chunks_per_page: int = 5,
-                      split: str = "train") -> Dict:
+                      split: str = "train",
+                      moderate: bool = False) -> Dict:
         """
         Research a topic via web search, fetch each page's text, and generate
         training conversations from the content.
@@ -380,6 +459,10 @@ class DatasetGenerator:
                 logger.info(f"Context file loaded: {ctx_path.name}")
             else:
                 logger.warning(f"Context file not found: {context_file}")
+
+        if moderate:
+            from .classifier import Classifier
+            clf = Classifier()
 
         logger.info(f"Searching: '{topic}' (top {search_top})")
         results = search(topic, top=search_top)
@@ -410,6 +493,14 @@ class DatasetGenerator:
                 guided = f"{context_hint}\n\n---\n\n{chunk}" if context_hint else chunk
                 convs = generate_qa_conversation(guided, "plain", num_turns, self.model)
                 if convs:
+                    if moderate:
+                        gpt_responses = " ".join(
+                            c["value"] for c in convs if c.get("from") == "gpt"
+                        )
+                        if clf.check_harm(gpt_responses):
+                            logger.warning(f"  Moderation blocked chunk {i+1} of {url[:50]}")
+                            stats["failed"] += 1
+                            continue
                     self.store.add_conversation(
                         dataset_name, convs,
                         split=split,
@@ -454,15 +545,29 @@ if __name__ == "__main__":
     parser.add_argument("--topic",        default=None,        help="Search topic — enables web research mode instead of file mode")
     parser.add_argument("--search-top",   type=int, default=5, help="Number of search results to fetch in topic mode")
     parser.add_argument("--context-file", default=None,        help="Reference file (.py/.tex/.md) to guide question generation in topic mode")
+    # ArXiv mode
+    parser.add_argument("--arxiv",        default=None,        help="ArXiv search query — enables ArXiv paper mode")
+    parser.add_argument("--arxiv-top",    type=int, default=5, help="Number of ArXiv papers to fetch")
+    # Moderation
+    parser.add_argument("--moderate",     action="store_true", help="Filter generated conversations through harm moderation (granite3-guardian:8b)")
 
     args = parser.parse_args()
 
-    if not args.file and not args.topic:
-        parser.error("Provide either a file/directory argument or --topic for web research mode.")
+    if not args.file and not args.topic and not args.arxiv:
+        parser.error("Provide a file/directory, --topic for web research, or --arxiv for ArXiv mode.")
 
     gen = DatasetGenerator(model=args.model)
 
-    if args.topic:
+    if args.arxiv:
+        result = gen.process_arxiv(
+            args.arxiv, args.dataset,
+            max_results=args.arxiv_top,
+            num_turns=args.turns,
+            split=args.split,
+            moderate=args.moderate,
+        )
+        print(f"\nResult: {json.dumps(result, indent=2)}")
+    elif args.topic:
         result = gen.process_topic(
             args.topic, args.dataset,
             search_top=args.search_top,
@@ -470,6 +575,7 @@ if __name__ == "__main__":
             num_turns=args.turns,
             max_chunks_per_page=args.chunks,
             split=args.split,
+            moderate=args.moderate,
         )
         print(f"\nResult: {json.dumps(result, indent=2)}")
     else:
@@ -482,6 +588,7 @@ if __name__ == "__main__":
                 max_chunks=args.chunks,
                 generate_tests=not args.no_tests,
                 split=args.split,
+                moderate=args.moderate,
             )
             total_convs = sum(r.get("conversations", 0) for r in results)
             print(f"\nProcessed {len(results)} files → {total_convs} conversations in '{args.dataset}'")
@@ -492,5 +599,6 @@ if __name__ == "__main__":
                 max_chunks=args.chunks,
                 generate_tests=not args.no_tests,
                 split=args.split,
+                moderate=args.moderate,
             )
             print(f"\nResult: {json.dumps(result, indent=2)}")
