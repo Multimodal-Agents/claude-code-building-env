@@ -17,9 +17,15 @@ The engine (Claude Code CLI) is treated as an upgradeable dependency. This repo 
 
 ## Local Model Stack
 
-- **Runtime**: Ollama (`http://localhost:11434`)
+- **Runtime**: Ollama (`http://localhost:11434`) for local, or Anthropic Pro subscription
 - **Primary model**: `gpt-oss:20b`  — 14 GB, runs on Titan XP, fast local inference
-- **Entry point**: `scripts_and_skills/claude_scripts/run_claude.ps1` (desktop shortcut)
+- **Launchers**:
+  - `scripts_and_skills/claude_scripts/run_claude.ps1` — PowerShell (Windows/desktop shortcut)
+    - `run_claude.ps1` → Anthropic Pro (default)
+    - `run_claude.ps1 -Ollama` → local Ollama (`gpt-oss:20b`)
+  - `scripts_and_skills/claude_scripts/run_claude.sh` — Bash (WSL)
+    - `bash run_claude.sh` → Anthropic Pro
+    - `bash run_claude.sh --ollama` → local Ollama
 
 ---
 
@@ -30,7 +36,8 @@ claude_code_building_env/
 ├── assets/                         # Icons and static media
 ├── scripts_and_skills/
 │   ├── claude_scripts/
-│   │   └── run_claude.ps1          # ← Main launcher / entry point
+│   │   ├── run_claude.ps1          # ← Windows launcher (default: Anthropic Pro; -Ollama: local)
+│   │   └── run_claude.sh           # ← WSL launcher (default: Anthropic Pro; --ollama: local)
 │   ├── data/                       # Data layer (parquet DB, embeddings, generators)
 │   │   ├── prompt_store.py         # CRUD for prompts + conversations (Unsloth/ShareGPT)
 │   │   ├── embeddings.py           # nomic-embed-text via Ollama + cosine search
@@ -79,7 +86,7 @@ official extension surface:
 | **Plugins**    | `claude_code_custom/claude-code/plugins/` | Commands, agents, hooks |
 | **Hooks**      | Plugin `hooks.json` files | Pre/post tool intercepts |
 | **CLAUDE.md**  | Here + per-project | Session-level context injection |
-| **Launcher**   | `run_claude.ps1` | Environment setup, model routing |
+| **Launcher**   | `run_claude.ps1` / `run_claude.sh` | Environment setup, model routing (Anthropic Pro or local Ollama) |
 | **Data Layer** | `scripts_and_skills/data/` | Parquet prompt DB, embeddings, dataset generator, ArXiv crawler, content moderation, web search |
 | **Commands**   | `.claude/commands/` | Slash commands usable in any session |
 
