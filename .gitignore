@@ -10,6 +10,9 @@ claude_custom_projects_1/
 # --- Dataset kitchen (user-specific input files for dataset generation) ---
 dataset_kitchen/
 
+# --- Assets (large files, e.g. images, videos) ---
+assets/
+
 # --- Git clones of external repos ---
 git_clones/
 

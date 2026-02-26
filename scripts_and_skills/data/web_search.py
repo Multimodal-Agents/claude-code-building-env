@@ -114,6 +114,14 @@ def fetch_url_text(url: str, timeout: int = 15, max_chars: int = 8000) -> str:
 if __name__ == "__main__":
     import argparse
 
+    # Windows terminals default to cp1252 which can't encode many Unicode chars
+    # (e.g. non-breaking hyphen \u2011 from web snippets).  Reconfigure to UTF-8
+    # with replacement so the CLI never crashes on exotic characters.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="DuckDuckGo search CLI")
     parser.add_argument("query",          help="Search query")
     parser.add_argument("--top",   "-n",  type=int, default=5,  help="Number of results")
