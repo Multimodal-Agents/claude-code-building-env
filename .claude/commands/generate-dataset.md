@@ -1,7 +1,8 @@
-# /generate-dataset — Generate training conversations from a document or web research
+# /generate-dataset — Generate training conversations from a document, web research, or ArXiv
 
-Converts a file (Python, LaTeX, Markdown, code, text) **or a web-researched topic**
-into ShareGPT-format training conversations stored in the local parquet database.
+Converts a file (Python, LaTeX, Markdown, code, text), a **web-researched topic**, or
+**ArXiv academic papers** into ShareGPT-format training conversations stored in the local
+parquet database. Optionally filters generated output through content moderation.
 
 ## Usage
 
@@ -33,6 +34,26 @@ python -m scripts_and_skills.data.dataset_generator \
 The `--context-file` steers every generated question toward how the topic
 relates to that specific code/document.
 
+**ArXiv paper mode:**
+```bash
+python -m scripts_and_skills.data.dataset_generator \
+    --arxiv "transformer architecture" \
+    --dataset <dataset-name> \
+    --arxiv-top 5 \
+    --turns 3
+```
+
+**Any mode with content moderation:**
+```bash
+python -m scripts_and_skills.data.dataset_generator \
+    <file_or_--topic_or_--arxiv> \
+    --dataset <dataset-name> \
+    --moderate
+```
+`--moderate` passes every generated GPT response through `granite3-guardian:8b`
+harm detection. Flagged conversations are skipped and counted as failed.
+Requires `ollama pull granite3-guardian:8b`.
+
 ## Options
 
 | Flag | Default | Description |
@@ -47,19 +68,24 @@ relates to that specific code/document.
 | `--topic` | — | Enable web research mode: search this topic |
 | `--search-top` | 5 | Number of web pages to fetch and process |
 | `--context-file` | — | Reference file to guide topic-mode question generation |
+| `--arxiv` | — | Enable ArXiv mode: search academic papers for this query |
+| `--arxiv-top` | 5 | Number of ArXiv papers to fetch and process |
+| `--moderate` | off | Filter output through `granite3-guardian:8b` harm detection |
 
 ## Instructions
 
-1. Ask whether the user wants **file mode** or **topic/research mode**.
+1. Ask whether the user wants **file mode**, **topic/research mode**, or **ArXiv mode**.
 2. For file mode: ask for path if not given; confirm dataset name, chunks, turns.
 3. For topic mode: ask for topic string and optional context file.
-4. Confirm all settings before running.
-5. Run the command and report progress.
-6. After completion, show stats:
+4. For ArXiv mode: ask for search query and number of papers (`--arxiv-top`).
+5. Ask if they want moderation (`--moderate`) — note it requires `granite3-guardian:8b`.
+6. Confirm all settings before running.
+7. Run the command and report progress.
+8. After completion, show stats:
    ```
    python -m scripts_and_skills.data.prompt_store stats <dataset-name>
    ```
-7. Offer to run embeddings:
+9. Offer to run embeddings:
    ```
    python -m scripts_and_skills.data.embeddings embed <dataset-name>
    ```
@@ -77,6 +103,23 @@ relates to that specific code/document.
 3. Chunks the page text and generates Q&A conversations
 4. If `--context-file` provided, each generation prompt includes a snippet of
    that file so questions are grounded in how the topic applies to your code
+
+## ArXiv behavior (--arxiv mode)
+
+1. Queries the ArXiv Atom API for `--arxiv-top` papers sorted by relevance
+2. For each paper, uses the abstract + optional arxiv page text as content
+3. Chunks the text and generates Q&A conversations (same pipeline as file/topic mode)
+4. Tags conversations with `arxiv`, `qa`, the query string, and paper categories
+5. ArXiv TOS: a 3-second rate-limit delay is applied between requests
+
+## Moderation behavior (--moderate)
+
+- After generating each conversation, the joined GPT responses are sent to
+  `granite3-guardian:8b` with the `harm` category
+- Flagged conversations are skipped and counted as `failed` in the result stats
+- On model error or timeout: fail-safe → conversation is blocked
+- Works with all three modes (file, topic, arxiv)
+- Pull the model first: `ollama pull granite3-guardian:8b`
 
 ## Notes
 
