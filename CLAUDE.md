@@ -34,7 +34,9 @@ claude_code_building_env/
 │   ├── data/                       # Data layer (parquet DB, embeddings, generators)
 │   │   ├── prompt_store.py         # CRUD for prompts + conversations (Unsloth/ShareGPT)
 │   │   ├── embeddings.py           # nomic-embed-text via Ollama + cosine search
-│   │   ├── dataset_generator.py    # Lite agent-chef: docs → training conversations
+│   │   ├── dataset_generator.py    # Lite agent-chef: docs/web/arxiv → training conversations
+│   │   ├── arxiv_crawler.py        # ArXiv Atom API search + paper text fetching
+│   │   ├── classifier.py           # Content moderation + RAG quality via granite3-guardian:8b
 │   │   ├── web_search.py           # DuckDuckGo search wrapper
 │   │   └── seeds/                  # One-time dataset seed scripts
 │   └── model_manager/              # Ollama model + GGUF + LoRA lifecycle
@@ -78,7 +80,7 @@ official extension surface:
 | **Hooks**      | Plugin `hooks.json` files | Pre/post tool intercepts |
 | **CLAUDE.md**  | Here + per-project | Session-level context injection |
 | **Launcher**   | `run_claude.ps1` | Environment setup, model routing |
-| **Data Layer** | `scripts_and_skills/data/` | Parquet prompt DB, embeddings, dataset generator, web search |
+| **Data Layer** | `scripts_and_skills/data/` | Parquet prompt DB, embeddings, dataset generator, ArXiv crawler, content moderation, web search |
 | **Commands**   | `.claude/commands/` | Slash commands usable in any session |
 
 This layer works with **any future version** of the Claude Code CLI.
@@ -117,3 +119,24 @@ This layer works with **any future version** of the Claude Code CLI.
 4. Project files are never committed to this repo — they live in `claude_custom_projects_1/`.
 5. The `claude_code_custom/claude-code/` directory is a reference clone — treat as read-only.
 6. Static media / icons live in `assets/`.
+
+## Web Search — Always-On Rule
+
+**CRITICAL: You are a local model with a training cutoff. Your knowledge of real-world facts can be outdated.**
+
+Before answering ANY question that involves:
+- Current or recent events (news, politics, sports, markets)
+- Who holds a role or position (CEO, president, team member, etc.)
+- Software versions, release dates, changelogs, or compatibility
+- Prices, availability, or product status
+- Anything the user describes as "current", "latest", "now", "today", or "2025/2026"
+
+You MUST run a web search FIRST using:
+
+```bash
+python -m scripts_and_skills.data.web_search "your query here" --top 5
+```
+
+Do NOT answer from memory for these categories. Search first, then synthesize an answer from the results.
+If the first search is insufficient, reformulate and search again with different terms.
+Only skip the search if the question is clearly timeless (math, logic, established CS theory, etc.).
