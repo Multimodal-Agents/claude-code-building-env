@@ -108,27 +108,15 @@ html, body {
   position: absolute; left: 0; top: 0;
   pointer-events: none; z-index: 49;
 }
-#crab {
+/* Canvas crab — pixel-perfect, no font issues */
+#crab-cv {
   position: absolute; top: 50%; transform: translateY(-50%);
   pointer-events: all; cursor: pointer; user-select: none;
-  color: #D77757;
-  text-shadow: 0 0 10px rgba(215,119,87,.7), 0 0 20px rgba(215,119,87,.3);
   z-index: 51; left: 10px;
-  font-size: 16px; line-height: 1.17;
-  font-family: Consolas, 'Courier New', monospace;
-  white-space: pre;
-  letter-spacing: 0; word-spacing: 0;
-  margin: 0; padding: 0; border: 0;
-  display: block; overflow: visible;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 0 7px rgba(215,119,87,.75)) drop-shadow(0 0 16px rgba(215,119,87,.30));
 }
-#crab .cr-eye {
-  display: inline;
-  color: #000 !important;
-  text-shadow: none !important;
-  transition: color .15s;
-}
-#crab.angry .cr-eye { color: #D77757 !important; text-shadow: 0 0 8px rgba(215,119,87,.9) !important; }
-#crab .cr-leg { display: inline; position: relative; top: 0; transition: top 120ms ease; }
 
 /* ─── Logo / Title ────────────────────────────────────────────── */
 .logo {
@@ -136,7 +124,7 @@ html, body {
   letter-spacing: 2.5px; white-space: nowrap;
   color: var(--fg); text-shadow: var(--gw);
   flex-shrink: 0;
-  margin-left: 118px;  /* crab clearance */
+  margin-left: 84px;  /* crab canvas clearance: 10px offset + 64px canvas + 10px gap */
 }
 .logo-d  { color: var(--sec); font-weight: 400; }
 .logo-d2 { color: var(--scd); font-weight: 400; }
@@ -397,6 +385,22 @@ html, body {
 .ev-info    { color: var(--gd); }
 .ev-crab    { color: #D77757;  text-shadow: 0 0 6px rgba(215,119,87,.5); }
 
+/* Language legend */
+.leg { display: flex; flex-wrap: wrap; gap: 3px 6px; }
+.leg-item {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; color: var(--gd); letter-spacing: .2px;
+  white-space: nowrap;
+}
+.leg-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 2px solid; background: transparent; flex-shrink: 0;
+}
+.leg-note {
+  font-size: 10px; font-weight: 700; color: var(--mute);
+  letter-spacing: .4px; padding: 2px 0 0;
+}
+
 /* ──────────────────────────────────────────────────────────────────
    TUTORIAL MODAL
 ────────────────────────────────────────────────────────────────── */
@@ -451,6 +455,37 @@ html, body {
 .tut-dot.active { background: var(--sec); box-shadow: var(--gw-r); }
 .tut-nav { display: flex; gap: 8px; justify-content: flex-end; }
 .tut-nav .btn { min-width: 90px; justify-content: center; }
+
+/* ──────────────────────────────────────────────────────────────────
+   CRAB PARTY OVERLAY
+────────────────────────────────────────────────────────────────── */
+#crab-party-cv {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 900;
+  display: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+#yt-party-wrap {
+  position: fixed; left: 0; top: 0;
+  width: 300px; height: 200px;
+  opacity: 0; pointer-events: none;
+  z-index: -1;
+}
+#crab-party-banner {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 901; display: none;
+  font: 900 22px "JetBrains Mono",monospace;
+  color: #D77757; text-shadow: 0 0 18px #D77757, 0 0 40px rgba(215,119,87,0.6);
+  letter-spacing: 3px; pointer-events: none;
+  animation: crab-banner-pulse 0.69s ease-in-out infinite alternate;
+}
+@keyframes crab-banner-pulse {
+  from { opacity: 0.7; text-shadow: 0 0 10px #D77757; }
+  to   { opacity: 1.0; text-shadow: 0 0 30px #D77757, 0 0 60px rgba(215,119,87,0.8); }
+}
 </style>
 </head>
 <body>
@@ -464,9 +499,7 @@ html, body {
     <!-- Claude crab (absolutely positioned, walks across header) -->
     <div id="crab-wrap">
       <canvas id="crab-fx-cv"></canvas>
-      <div id="crab" title="🦀 Click me!"> ▐▛███▜▌
-▝▜<span class="cr-eye cr-eye-l" id="cr-el">█</span>███<span class="cr-eye cr-eye-r" id="cr-er">█</span>▛▘
-<span class="cr-leg" id="cr-ol"> </span><span class="cr-leg" id="cr-il">▘▘</span>   <span class="cr-leg" id="cr-ir">▝▝</span><span class="cr-leg" id="cr-or"> </span></div>
+      <canvas id="crab-cv" title="🦀 Click me!"></canvas>
     </div>
 
     <div class="logo">
@@ -583,11 +616,42 @@ html, body {
         <div class="ph">╭─[ <span class="ph-icon">⊟</span> FILTER ]</div>
         <select id="lang-f" class="sel">
           <option value="all">All languages</option>
-          <option value="python">◆ Python · .py</option>
-          <option value="js">◆ JavaScript · .js</option>
-          <option value="ts">◆ TypeScript · .ts</option>
-          <option value="jsx">◆ JSX · .jsx</option>
-          <option value="tsx">◆ TSX · .tsx</option>
+          <optgroup label="─ Code">
+            <option value="python">◆ Python · .py</option>
+            <option value="js">◆ JavaScript · .js</option>
+            <option value="ts">◆ TypeScript · .ts</option>
+            <option value="jsx">◆ JSX · .jsx</option>
+            <option value="tsx">◆ TSX · .tsx</option>
+            <option value="rust">◆ Rust · .rs</option>
+            <option value="go">◆ Go · .go</option>
+            <option value="ruby">◆ Ruby · .rb</option>
+            <option value="java">◆ Java · .java</option>
+            <option value="csharp">◆ C# · .cs</option>
+            <option value="cpp">◆ C++ · .cpp</option>
+            <option value="c">◆ C · .c</option>
+            <option value="lua">◆ Lua · .lua</option>
+            <option value="sql">◆ SQL · .sql</option>
+            <option value="r">◆ R · .r</option>
+            <option value="julia">◆ Julia · .jl</option>
+          </optgroup>
+          <optgroup label="─ Docs">
+            <option value="markdown">◆ Markdown · .md</option>
+          </optgroup>
+          <optgroup label="─ Shell">
+            <option value="shell">◆ Shell · .sh</option>
+            <option value="powershell">◆ PowerShell · .ps1</option>
+          </optgroup>
+          <optgroup label="─ Data">
+            <option value="json">◆ JSON · .json</option>
+            <option value="yaml">◆ YAML · .yaml</option>
+            <option value="toml">◆ TOML · .toml</option>
+            <option value="config">◆ Config · .env / .ini</option>
+          </optgroup>
+          <optgroup label="─ Web">
+            <option value="html">◆ HTML · .html</option>
+            <option value="css">◆ CSS · .css / .scss</option>
+          </optgroup>
+          <option value="other">◆ Other</option>
         </select>
         <select id="grp-f" class="sel">
           <option value="all">All directories</option>
@@ -622,11 +686,24 @@ html, body {
 
       <!-- Settings -->
       <div class="pnl">
-        <div class="ph">╭─[ <span class="ph-icon">⚙</span> SETTINGS ]</div>
+        <div class="ph">╭─[ <span class="ph-icon">⚧</span> SETTINGS ]</div>
         <button class="btn red" id="btn-tut"><span class="lt off" id="lt-tut">○</span>? TUTORIAL</button>
         <div class="brow">
           <button class="btn" id="btn-fontup" title="Increase font size">A+</button>
           <button class="btn" id="btn-fontdn" title="Decrease font size">A-</button>
+        </div>
+      </div>
+
+      <!-- Language Legend -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">◆</span> LANG LEGEND ]</div>
+        <div class="leg-note">BORDER = LANGUAGE</div>
+        <div class="leg" id="lang-legend"></div>
+        <div class="leg-note" style="margin-top:6px">INNER = EDIT STATE</div>
+        <div class="leg" style="margin-top:2px">
+          <div class="leg-item"><span style="background:#2d1300;width:18px;height:10px;display:inline-block;border:1px solid #ff9500;border-radius:2px"></span> CLAUDE EDIT</div>
+          <div class="leg-item"><span style="background:#4a2400;width:18px;height:10px;display:inline-block;border:1px solid #ff9900;border-radius:2px"></span> DRIFT ≥10%</div>
+          <div class="leg-item"><span style="background:#6b3000;width:18px;height:10px;display:inline-block;border:1px solid #ff5500;border-radius:2px"></span> DRIFT ≥20%</div>
         </div>
       </div>
 
@@ -675,6 +752,11 @@ html, body {
     </div>
   </div>
 </div>
+
+<!-- ─── CRAB PARTY ──────────────────────────────────────────── -->
+<canvas id="crab-party-cv"></canvas>
+<div id="crab-party-banner">🦀 CRAB RAVE 🦀</div>
+<div id="yt-party-wrap"><div id="yt-party-player"></div></div>
 
 <script>
 'use strict';
@@ -1269,51 +1351,112 @@ window.addEventListener('resize', () => { resizeCanvases(); updateHulls(); });
 
 
 /* ────────────────────────────────────────────────────────────────────
-   CLAUDE CRAB 🦀
+   CLAUDE CRAB 🦀 — pixel-art canvas renderer
 ──────────────────────────────────────────────────────────────────── */
-const crabEl   = document.getElementById('crab');
+const crabCv   = document.getElementById('crab-cv');
+const crabCtx  = crabCv.getContext('2d');
 const crabFxCv = document.getElementById('crab-fx-cv');
 const crabFxCx = crabFxCv.getContext('2d');
 
+/* —— Pixel art constants ——————————————————————————————————————————— */
+const CELL = 8;         // px per cell (logical — drawn 2× for sharpness)
+const SCALE = 2;        // HiDPI / retina multiplier
+
+/*  Pixel map: 0=transparent  1=body  2=eye  3=shadow
+    8 cols × 4 body rows + 1 leg row
+
+    Row 0:  . . B B B B . .   shell roof
+    Row 1:  . B B B B B B .   upper body sweep
+    Row 2:  B B E B B E B B   eyes + claws spread wide
+    Row 3:  . B B B B B B .   lower belly
+    Legs:   alternates between outer and inner planted */
+const CRAB_BODY = [
+  [0, 0, 1, 1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 2, 1, 1, 2, 1, 1],
+  [0, 1, 1, 3, 3, 1, 1, 0],
+];
+const CRAB_LEGS = [
+  [1, 0, 1, 0, 0, 1, 0, 1],   // frame 0 — outer legs planted (down)
+  [0, 1, 0, 1, 1, 0, 1, 0],   // frame 1 — inner legs planted (down)
+];
+
+const CW = 8 * CELL * SCALE;           // canvas logical width
+const CH = 5 * CELL * SCALE;           // 4 body + 1 leg row
+crabCv.width        = CW;
+crabCv.height       = CH;
+crabCv.style.width  = (8 * CELL) + 'px';
+crabCv.style.height = (5 * CELL) + 'px';
+
+const C_BODY   = '#D77757';
+const C_SHADE  = '#a84a2a';  // row-3 shadow tint
+const C_EYE_N  = '#1a0a08';  // normal eye — near-black warm
+const C_EYE_A  = '#ffcc44';  // angry eye — bright yellow
+
+function drawCrab(frame, angry) {
+  crabCtx.clearRect(0, 0, CW, CH);
+  const s = CELL * SCALE;
+
+  /* body rows 0-3 */
+  for (let r = 0; r < CRAB_BODY.length; r++) {
+    for (let c = 0; c < 8; c++) {
+      const px = CRAB_BODY[r][c];
+      if (!px) continue;
+      crabCtx.fillStyle = px === 2 ? (angry ? C_EYE_A : C_EYE_N)
+                        : px === 3 ? C_SHADE
+                        : C_BODY;
+      crabCtx.fillRect(c * s, r * s, s, s);
+    }
+  }
+
+  /* leg row */
+  const legs = CRAB_LEGS[frame & 1];
+  /* offset alternating legs up/down for walk feel */
+  for (let c = 0; c < 8; c++) {
+    if (!legs[c]) continue;
+    const legBob = (frame === 0 && c < 4) || (frame === 1 && c >= 4) ? 0 : Math.round(s * 0.25);
+    crabCtx.fillStyle = C_BODY;
+    crabCtx.fillRect(c * s, 4 * s + legBob, s, s);
+  }
+}
+drawCrab(0, false);
+
+/* —— State ————————————————————————————————————————————————————————— */
 let crabX       = 10;
 let crabTargetX = 10;
 let crabFrame   = 0;
+let crabAngry   = false;
 let crabMoving  = false;
 let crabWalkTmr = null;
 const CRAB_HOME      = 10;
 const CRAB_MAX_SPEED = 3.85;
 const CRAB_LERP      = 0.11;
 
+/* Party state — declared early so crabLoop can reference them */
+let crabPartyActive  = false;
+let _partyRightEdge  = false;   // edge-arrival debounce
+let _partyPending    = false;   // set by crabLoop, consumed by next mousemove
+
 const crabFxParts = [];
 
 function crabSetEyes(angry) {
-  crabEl.classList.toggle('angry', angry);
-  document.getElementById('cr-el').textContent = angry ? '>' : '█';
-  document.getElementById('cr-er').textContent = angry ? '<' : '█';
+  crabAngry = angry;
+  drawCrab(crabFrame, crabAngry);
   if (angry) setTimeout(() => crabSetEyes(false), 900);
 }
 
 function crabSetFrame(f) {
   crabFrame = f;
-  const olEl = document.getElementById('cr-ol');
-  const orEl = document.getElementById('cr-or');
-  const ilEl = document.getElementById('cr-il');
-  const irEl = document.getElementById('cr-ir');
-  /* Outer legs up on frame 0, inner up on frame 1 */
-  olEl.style.top = f === 0 ? '-3px' : '0';
-  orEl.style.top = f === 0 ? '-3px' : '0';
-  ilEl.style.top = f === 1 ? '-3px' : '0';
-  irEl.style.top = f === 1 ? '-3px' : '0';
+  drawCrab(crabFrame, crabAngry);
 }
 
 function spawnCrabParticles() {
-  const rect    = crabEl.getBoundingClientRect();
   const hdrRect = document.getElementById('hdr').getBoundingClientRect();
-  const baseX   = rect.left - hdrRect.left + rect.width * 0.25;
-  const baseY   = rect.bottom - hdrRect.top - 2;
+  const baseX   = crabX + parseInt(crabCv.style.width) * 0.5;
+  const baseY   = hdrRect.height * 0.78;
   for (let i = 0; i < 4; i++) {
     crabFxParts.push({
-      x: baseX + Math.random() * rect.width * 0.5,
+      x: baseX + (Math.random() - 0.5) * parseInt(crabCv.style.width) * 0.6,
       y: baseY,
       vx: (Math.random() - 0.5) * 2.2,
       vy: -Math.random() * 2.5 - 0.5,
@@ -1339,6 +1482,14 @@ function crabLoop() {
   const step  = diff * CRAB_LERP;
   const clamped = Math.sign(step) * Math.min(Math.abs(step), CRAB_MAX_SPEED);
   crabX += clamped;
+
+  /* ── Right-edge: set flag when CRAB reaches edge; mousemove consumes it ── */
+  if (!crabPartyActive && !_partyRightEdge && !_partyPending) {
+    const _hw = document.getElementById('hdr').offsetWidth;
+    const _cw = parseInt(crabCv.style.width) || (8 * CELL);
+    if (crabX >= _hw - _cw - 18) { _partyRightEdge = true; _partyPending = true; }
+  }
+
   crabMoving = Math.abs(crabX - prevX) > 0.3;
 
   /* Start/stop walk cycle */
@@ -1352,9 +1503,9 @@ function crabLoop() {
     crabSetFrame(0);
   }
 
-  crabEl.style.left = Math.round(crabX) + 'px';
+  crabCv.style.left = Math.round(crabX) + 'px';
 
-  /* Draw foot particles */
+  /* Draw foot particles on fx canvas */
   crabFxCx.clearRect(0, 0, crabFxCv.width, crabFxCv.height);
   for (let i = crabFxParts.length-1; i >= 0; i--) {
     const p = crabFxParts[i];
@@ -1378,12 +1529,24 @@ const hdr = document.getElementById('hdr');
 hdr.addEventListener('mousemove', e => {
   const rect = hdr.getBoundingClientRect();
   crabTargetX = Math.max(8, Math.min(rect.width - 80, e.clientX - rect.left - 40));
+
+  /* Consume pending party flag — we're inside a real user gesture so autoplay works */
+  if (_partyPending && !crabPartyActive) {
+    _partyPending = false;
+    startCrabParty();
+  }
 });
 hdr.addEventListener('mouseleave', () => { crabTargetX = CRAB_HOME; });
 
-crabEl.addEventListener('mousedown', e => {
+crabCv.addEventListener('mousedown', e => {
   e.stopPropagation();
   crabSetEyes(true);
+  /* Click during party → eyes blink angry then end the rave */
+  if (crabPartyActive) {
+    logEntry('crab', '🦀 the crab has spoken. rave over.', '');
+    setTimeout(_endCrabPartyCleanup, 900);   /* wait for eye-blink to finish */
+    return;
+  }
   /* Easter egg on shift+click */
   if (e.shiftKey) {
     logEntry('crab', '🦀 SIDEWAYS IS THE ONLY WAY', '');
@@ -1410,6 +1573,270 @@ setInterval(() => {
     logEntry('crab', tip, '🦀');
   }
 }, 1000);
+
+/* ──────────────────────────────────────────────────────────────────
+   CRAB PARTY 🦀🎉  (triggered when crab walks to the far-right edge)
+   • 26 pixel-art crabs invade the UI for 35 seconds
+   • Crabs clap to the beat of Crab Rave (174 BPM)
+   • YouTube plays from 0:29 for 25 seconds
+   • At t=30s crabs flee Crab-Rave style, at t=35s cleanup
+────────────────────────────────────────────────────────────────── */
+const PARTY_DURATION   = 300000;  /* 5 min safety fallback — music drives timing now */
+const PARTY_FLEE_AT    = 290000;  /* safety only — normally triggered by video end */
+const PARTY_YT_START   = 29;
+const PARTY_BPM        = 174;
+const PARTY_BEAT_MS    = Math.round(60000 / PARTY_BPM);  // ~345 ms
+const PARTY_COUNT      = 26;
+
+let crabPartyBeat     = 0;       // toggles 0/1 at BPM rate
+let crabPartyBeatTmr  = null;
+let crabPartyRafId    = null;
+let crabPartyEndTmr   = null;
+let crabPartyFleeTmr  = null;
+let crabPartyFleeMode = false;
+let ytApiLoaded      = false;
+let ytReady          = false;
+let ytPlayer         = null;
+let _userActivated   = false;   // true once any click/key has happened on page
+let _ytPlayOnActivate = false;  // pending play waiting for first activation
+const _partyCrabs     = [];
+
+const partyCv  = document.getElementById('crab-party-cv');
+const partyCtx = partyCv.getContext('2d');
+const partyBanner = document.getElementById('crab-party-banner');
+
+function resizePartyCv() {
+  partyCv.width  = window.innerWidth;
+  partyCv.height = window.innerHeight;
+}
+resizePartyCv();
+window.addEventListener('resize', resizePartyCv);
+
+/* ─── YouTube IFrame API ─────────────────────────────────────────────────────
+   Chrome autoplay policy: playVideo() only works after a "sticky user activation"
+   (pointerdown / click / keydown — NOT mousemove). We track this with _userActivated.
+   Player loads eagerly at page start. On party trigger:
+     - if user has ever clicked → setTimeout(_doYTPlay,0) works (sticky activation)
+     - otherwise → queue to fire on next pointerdown (user will click something)    */
+const PARTY_YT_DURATION_MS = (212 - PARTY_YT_START) * 1000; // ~183 000 ms
+let _ytEndTmr = null;
+
+/* Track real user activations globally */
+document.addEventListener('pointerdown', () => { _userActivated = true; }, { capture: true });
+document.addEventListener('keydown',     () => { _userActivated = true; }, { capture: true });
+
+window.onYouTubeIframeAPIReady = function () {
+  ytPlayer = new YT.Player('yt-party-player', {
+    height: '1', width: '1',
+    videoId: 'LDU_Txk06tM',
+    playerVars: {
+      autoplay: 0, controls: 0, disablekb: 1,
+      iv_load_policy: 3, modestbranding: 1, rel: 0,
+      playsinline: 1,
+    },
+    events: {
+      onReady: function () {
+        ytReady = true;
+        console.log('[CRAB] YT player ready');
+        /* Party started before player was ready — play now if activated */
+        if (_ytPlayOnActivate && _userActivated) { _ytPlayOnActivate = false; _doYTPlay(); }
+      },
+    },
+  });
+};
+
+(function _loadYTApi() {
+  if (ytApiLoaded) return;
+  ytApiLoaded = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+})();
+
+function _doYTPlay() {
+  if (!ytPlayer || !ytReady) { console.warn('[CRAB] _doYTPlay: not ready', {ytPlayer:!!ytPlayer, ytReady}); return; }
+  try {
+    console.log('[CRAB] _doYTPlay: seeking to', PARTY_YT_START, 'and playing');
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    ytPlayer.seekTo(PARTY_YT_START, true);
+    ytPlayer.playVideo();
+  } catch (e) { console.warn('YT play err:', e); }
+  clearTimeout(_ytEndTmr);
+  _ytEndTmr = setTimeout(() => {
+    if (crabPartyActive) {
+      clearTimeout(crabPartyFleeTmr);
+      crabPartyFleeTmr = setTimeout(_triggerCrabFlee, 3000);
+    }
+  }, PARTY_YT_DURATION_MS);
+}
+
+function _requestCrabRave() {
+  console.log('[CRAB] _requestCrabRave called', {ytReady, _userActivated, ytPlayer:!!ytPlayer});
+  if (!ytReady) { _ytPlayOnActivate = true; return; }    // player still loading
+  if (_userActivated) {
+    setTimeout(_doYTPlay, 0);   // sticky activation: safe from any context
+  } else {
+    /* Extremely rare: party trigger before any click. Play on next pointerdown. */
+    _ytPlayOnActivate = true;
+    document.addEventListener('pointerdown', function _once() {
+      document.removeEventListener('pointerdown', _once, true);
+      if (_ytPlayOnActivate && crabPartyActive) { _ytPlayOnActivate = false; _doYTPlay(); }
+    }, { once: true, capture: true });
+  }
+}
+
+function _stopYT() {
+  clearTimeout(_ytEndTmr); _ytEndTmr = null;
+  _ytPlayOnActivate = false;
+  try { if (ytPlayer && ytReady) ytPlayer.stopVideo(); } catch (e) {}
+}
+
+/* ─── Per-crab pixel renderer (any ctx, any position, any cell size) */
+function _drawPartyCrab(ctx, px, py, cs, clapUp) {
+  /* Raised claws: one cell above top-left and top-right corners */
+  if (clapUp) {
+    ctx.fillStyle = C_BODY;
+    ctx.fillRect(px,          py - cs, cs, cs);  // left claw
+    ctx.fillRect(px + 7 * cs, py - cs, cs, cs);  // right claw
+  }
+  /* Body grid */
+  for (let r = 0; r < CRAB_BODY.length; r++) {
+    for (let c = 0; c < 8; c++) {
+      const v = CRAB_BODY[r][c];
+      if (!v) continue;
+      ctx.fillStyle = v === 2 ? C_EYE_N : v === 3 ? C_SHADE : C_BODY;
+      ctx.fillRect(px + c * cs, py + r * cs, cs, cs);
+    }
+  }
+  /* Leg row — outer legs down on clap=up, inner on clap=down (walk feel) */
+  const legRow = CRAB_LEGS[clapUp ? 0 : 1];
+  for (let c = 0; c < 8; c++) {
+    if (!legRow[c]) continue;
+    ctx.fillStyle = C_BODY;
+    ctx.fillRect(px + c * cs, py + 4 * cs, cs, cs);
+  }
+}
+
+/* ─── Spawn party crabs ─────────────────────────────────────────── */
+function _spawnPartyCrabs() {
+  _partyCrabs.length = 0;
+  const W = window.innerWidth, H = window.innerHeight;
+  for (let i = 0; i < PARTY_COUNT; i++) {
+    const cs      = 5 + Math.floor(Math.random() * 11);   // 5–15 px cell
+    const fromLeft = i % 2 === 0;
+    const targetX  = W * 0.04 + Math.random() * (W * 0.88);
+    const targetY  = H * 0.10 + Math.random() * (H * 0.78);
+    const startX   = fromLeft ? -(cs * 10) : W + cs * 4;
+    const startY   = targetY + (Math.random() - 0.5) * 80;
+    const speed    = 3.5 + Math.random() * 5;
+    _partyCrabs.push({
+      x: startX, y: startY,
+      tx: targetX, ty: targetY,
+      cs, speed,
+      arrived: false,
+      phase: Math.random() * Math.PI * 2,   // bob offset
+      fleeDx: 0, fleeDy: 0,
+    });
+  }
+}
+
+/* ─── Party rAF loop ────────────────────────────────────────────── */
+function _crabPartyTick(ts) {
+  if (!crabPartyActive) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  partyCtx.clearRect(0, 0, partyCv.width, partyCv.height);
+  const beatUp = crabPartyBeat === 1;
+  let allGone  = true;
+
+  for (const cr of _partyCrabs) {
+    if (crabPartyFleeMode) {
+      cr.x     += cr.fleeDx;
+      cr.y     += cr.fleeDy;
+      cr.fleeDx *= 1.05;   // accelerate outward
+      cr.fleeDy *= 1.05;
+      const margin = cr.cs * 12;
+      if (cr.x > -margin && cr.x < W + margin &&
+          cr.y > -margin && cr.y < H + margin) allGone = false;
+    } else {
+      if (!cr.arrived) {
+        const dx = cr.tx - cr.x, dy = cr.ty - cr.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < cr.speed + 1) { cr.x = cr.tx; cr.y = cr.ty; cr.arrived = true; }
+        else { cr.x += (dx / dist) * cr.speed; cr.y += (dy / dist) * cr.speed; }
+      } else {
+        /* Dance bob — sinusoidal vertical sway */
+        cr.y = cr.ty + Math.sin(ts * 0.0038 + cr.phase) * 4;
+      }
+      allGone = false;
+    }
+
+    /* Shift up by one cell on beat (clap up = body lifts) */
+    const bobY = beatUp ? -cr.cs : 0;
+    _drawPartyCrab(partyCtx, Math.round(cr.x), Math.round(cr.y + bobY), cr.cs, beatUp);
+  }
+
+  if (crabPartyFleeMode && allGone) { _endCrabPartyCleanup(); return; }
+  crabPartyRafId = requestAnimationFrame(_crabPartyTick);
+}
+
+/* ─── Start ─────────────────────────────────────────────────────── */
+function startCrabParty() {
+  if (crabPartyActive) return;
+  crabPartyActive   = true;
+  crabPartyFleeMode = false;
+  crabPartyBeat     = 0;
+
+  partyCv.style.display    = 'block';
+  partyBanner.style.display = 'block';
+
+  _spawnPartyCrabs();
+  _requestCrabRave();
+
+  /* Beat metronome at Crab Rave BPM */
+  crabPartyBeatTmr = setInterval(() => { crabPartyBeat = 1 - crabPartyBeat; }, PARTY_BEAT_MS);
+
+  /* Flee mode — called either by video end or safety timer */
+  crabPartyFleeTmr = setTimeout(_triggerCrabFlee, PARTY_FLEE_AT);
+
+  /* Hard stop safety at t=5min */
+  crabPartyEndTmr = setTimeout(_endCrabPartyCleanup, PARTY_DURATION);
+
+  crabPartyRafId = requestAnimationFrame(_crabPartyTick);
+  logEntry('crab', '🦀🎉 CRAB PARTY — THE CRABS HAVE TAKEN OVER (until the music ends)', '');
+}
+
+/* ─── Flee trigger (separated so onStateChange + timer both call it) */
+function _triggerCrabFlee() {
+  if (!crabPartyActive || crabPartyFleeMode) return;
+  crabPartyFleeMode = true;
+  partyBanner.textContent = '🦀 THEY ARE FLEEING 🦀';
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  for (const cr of _partyCrabs) {
+    const dx = cr.x - cx, dy = cr.y - cy;
+    const mag = Math.hypot(dx, dy) || 1;
+    const spd = 9 + Math.random() * 14;
+    cr.fleeDx = (dx / mag) * spd;
+    cr.fleeDy = (dy / mag) * spd;
+  }
+}
+
+/* ─── Cleanup ───────────────────────────────────────────────────── */
+function _endCrabPartyCleanup() {
+  crabPartyActive = false;
+  partyCv.style.display    = 'none';
+  partyBanner.style.display = 'none';
+  partyBanner.textContent  = '🦀 CRAB PARTY 🦀';
+  clearInterval(crabPartyBeatTmr); crabPartyBeatTmr = null;
+  clearTimeout(crabPartyFleeTmr);  crabPartyFleeTmr = null;
+  clearTimeout(crabPartyEndTmr);   crabPartyEndTmr  = null;
+  if (crabPartyRafId) { cancelAnimationFrame(crabPartyRafId); crabPartyRafId = null; }
+  partyCtx.clearRect(0, 0, partyCv.width, partyCv.height);
+  try { _stopYT(); } catch(e) {}
+  /* Reset edge flag after 6s cooldown so it can re-trigger */
+  setTimeout(() => { _partyRightEdge = false; }, 6000);
+  logEntry('crab', '🦀 the crabs have fled into the void. silence returns.', '');
+}
 
 /* ────────────────────────────────────────────────────────────────────
    TUTORIAL SYSTEM
@@ -1525,8 +1952,40 @@ const WSU  = 'ws://' + location.host + '/ws';
 const LMAX = 300;
 
 const LANG_CLR = {
-  python:'#b347ea', js:'#f7df1e', ts:'#007acc',
-  jsx:'#61dafb', tsx:'#61dafb', other:'#D77757',
+  // Code languages
+  python:     '#b347ea',  // purple
+  js:         '#f7df1e',  // JS yellow
+  ts:         '#007acc',  // TS blue
+  jsx:        '#61dafb',  // React cyan
+  tsx:        '#61dafb',  // React cyan
+  // Docs
+  markdown:   '#5af7b4',  // teal-green
+  // Shell
+  shell:      '#98fb98',  // pale green
+  powershell: '#5c9dff',  // ps blue
+  // Data / config
+  json:       '#ffa726',  // amber-orange
+  yaml:       '#f48fb1',  // pink
+  toml:       '#ef9a9a',  // light red-pink
+  config:     '#8fbc8f',  // sage green
+  // Web / style
+  html:       '#e84d26',  // HTML orange-red
+  css:        '#264de4',  // CSS blue
+  // Systems
+  rust:       '#d4531e',  // Rust brown-orange
+  go:         '#00acd7',  // Go cyan
+  cpp:        '#00599c',  // C++ blue
+  c:          '#a8b9cc',  // C silver-blue
+  csharp:     '#9b4993',  // C# purple
+  java:       '#f89820',  // Java orange
+  // Scripting
+  ruby:       '#cc342d',  // Ruby red
+  lua:        '#6b6bff',  // Lua periwinkle
+  r:          '#1e69a5',  // R blue
+  julia:      '#9558b2',  // Julia purple
+  sql:        '#00758f',  // SQL teal
+  // Fallback
+  other:      '#D77757',  // default claude orange
 };
 
 let cy, sim;
@@ -1558,22 +2017,28 @@ const CY_STYLE = [
     'border-color':'#D77757','border-width':3,
     'background-color':'#1e100c','color':'#D77757',
   }},
+  /* Active flash — border changes temporarily during glitch animation */
   { selector:'node.c-edit', style:{
-    'background-color':'#201000','border-color':'#ffbf28',
-    'border-width':4,'color':'#ffbf28',
+    'background-color':'#4a2000','border-color':'#ff9500',
+    'border-width':5,'color':'#ff9500',
+  }},
+  /* Persistent post-edit glow — inner color only, lang border kept by glitch restore */
+  { selector:'node.c-edited', style:{
+    'background-color':'#2d1300',
   }},
   { selector:'node.c-new', style:{
-    'background-color':'#001322','border-color':'#4fc3f7',
-    'border-width':3,'color':'#4fc3f7',
+    'background-color':'#002040','border-color':'#4fc3f7',
+    'border-width':4,'color':'#4fc3f7',
   }},
+  /* Semantic drift — background only, lang border preserved */
   { selector:'node.drift-lo', style:{
-    'border-width':3, 'border-color':'#cc8800', 'background-color':'#1a0c00',
+    'background-color':'#2a1400',
   }},
   { selector:'node.drift-md', style:{
-    'border-width':4, 'border-color':'#ff9900', 'background-color':'#261200',
+    'background-color':'#4a2400', 'border-width':3,
   }},
   { selector:'node.drift-hi', style:{
-    'border-width':5, 'border-color':'#ff6600', 'background-color':'#301800',
+    'background-color':'#6b3000', 'border-width':4,
   }},
   { selector:'edge', style:{
     'width':1.5,'line-color':'#4a3030',
@@ -1727,25 +2192,35 @@ function glitch(nodeId, cls) {
   const n = cy.getElementById(nodeId);
   if (!n||n.empty()) return;
   const isEdit = cls !== 'c-new';
-  const fc  = isEdit ? '#ffbf28' : '#4fc3f7';
-  const fbg = isEdit ? '#281400' : '#001422';
+  /* Vivid flash colors — much brighter than before */
+  const fc   = isEdit ? '#ff9500' : '#4fc3f7';   // vivid amber-orange vs cyan
+  const fbg  = isEdit ? '#5a2800' : '#002a44';   // warm/cool mid-dark bg
   const orig = LANG_CLR[n.data('lang')]||'#D77757';
   n.addClass(cls||'c-edit');
   let c = 0;
   const tick = () => {
-    if (c++ >= 6) {
-      n.animate({ style:{'background-color':'#110d0e','border-color':orig,'border-width':2,'color':'#c08070'} }, { duration:500 });
-      setTimeout(()=>n.removeClass(cls||'c-edit'), 550);
+    if (c++ >= 10) {
+      /* After flash: restore lang border, leave warm inner glow if edit */
+      const persistBg = (isEdit && cls !== 'c-new') ? '#2d1300' : '#110d0e';
+      n.animate({ style:{'background-color': persistBg,'border-color':orig,'border-width':2,'color':'#c08070'} }, { duration:400 });
+      n.removeClass(cls||'c-edit');
+      if (isEdit && cls !== 'c-new') {
+        n.addClass('c-edited');
+        /* Fade the persistent glow after 5 minutes */
+        setTimeout(() => n.removeClass('c-edited'), 300_000);
+      }
       return;
     }
     const ev = c%2===0;
     n.animate({ style:{
-      'background-color': ev?fbg:'#110d0e', 'border-color': ev?fc:orig,
-      'border-width': ev?4:2,               'color': ev?fc:'#c08070',
-    }}, { duration:85, complete:tick });
+      'background-color': ev ? fbg : '#110d0e',
+      'border-color':     ev ? fc  : orig,
+      'border-width':     ev ? 5   : 2,
+      'color':            ev ? fc  : '#c08070',
+    }}, { duration:70, complete:tick });
   };
   tick();
-  if (sim.on) sim.kick(nodeId, (Math.random()-.5)*14, (Math.random()-.5)*14);
+  if (sim.on) sim.kick(nodeId, (Math.random()-.5)*18, (Math.random()-.5)*18);
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -2130,6 +2605,39 @@ _logTogBtn.addEventListener('click', () => {
 });
 
 /* ────────────────────────────────────────────────────────────────────
+   LANGUAGE LEGEND
+──────────────────────────────────────────────────────────────────── */
+function buildLangLegend() {
+  const el = document.getElementById('lang-legend');
+  if (!el) return;
+  /* Friendly display names */
+  const NAMES = {
+    python:'Python', js:'JS', ts:'TS', jsx:'JSX', tsx:'TSX',
+    markdown:'Markdown', shell:'Shell', powershell:'PowerShell',
+    json:'JSON', yaml:'YAML', toml:'TOML', config:'Config',
+    html:'HTML', css:'CSS', rust:'Rust', go:'Go', cpp:'C++',
+    c:'C', csharp:'C#', java:'Java', ruby:'Ruby', lua:'Lua',
+    sql:'SQL', r:'R', julia:'Julia', other:'Other',
+  };
+  el.innerHTML = '';
+  for (const [lang, color] of Object.entries(LANG_CLR)) {
+    const name = NAMES[lang] || lang;
+    const item = document.createElement('div');
+    item.className = 'leg-item';
+    item.title = lang;
+    item.innerHTML = `<span class="leg-dot" style="border-color:${color}"></span>${name}`;
+    /* Click to filter by this language */
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', () => {
+      const sel = document.getElementById('lang-f');
+      sel.value = lang;
+      applyFilters();
+    });
+    el.appendChild(item);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────
    BOOT
 ──────────────────────────────────────────────────────────────────── */
 async function fetchProjects() {
@@ -2141,6 +2649,7 @@ async function fetchProjects() {
 
 initCy();
 resizeCanvases();
+buildLangLegend();
 fetchProjects();
 connectWS();
 

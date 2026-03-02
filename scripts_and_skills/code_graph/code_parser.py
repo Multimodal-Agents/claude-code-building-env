@@ -1,10 +1,14 @@
 """
-code_parser.py — Parse Python / JS / TS files into Cytoscape graph elements.
+code_parser.py — Parse ANY file into Cytoscape graph elements.
 
-Walks a project directory, extracts import relationships, and returns
-Cytoscape-compatible nodes and edges.
+Walks a project directory, extracts import/link/source relationships, and
+returns Cytoscape-compatible nodes and edges.
 
-Supported: .py  .js  .ts  .jsx  .tsx  .mjs
+Code (AST / regex imports):  .py  .js  .ts  .jsx  .tsx  .mjs  .rs  .go  .rb  .java  .cs  .lua
+Markdown links:               .md  .mdx  .markdown
+Shell sources:                .sh  .bash  .zsh
+PowerShell dot-sources:       .ps1  .psm1  .psd1
+Data / config (nodes only):   .json  .yaml  .yml  .toml  .env  .cfg  .ini  .sql  .html  .css  .scss
 """
 
 import ast
@@ -19,25 +23,97 @@ logger = logging.getLogger(__name__)
 SKIP_DIRS = {
     ".git", "__pycache__", "node_modules", "venv", ".venv",
     "dist", "build", ".next", ".nuxt", ".output", "coverage",
-    ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox",
+    ".eggs", "htmlcov", "local_data", ".claude", ".idea",
+    ".vscode", "__snapshots__", ".cargo",
 }
 
-SUPPORTED_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".mjs"}
+SUPPORTED_EXT = {
+    # Code
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs",
+    ".rs", ".go", ".rb", ".java", ".cs", ".lua", ".r",
+    ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp",
+    # Docs
+    ".md", ".mdx", ".markdown",
+    # Shell
+    ".sh", ".bash", ".zsh",
+    # PowerShell
+    ".ps1", ".psm1", ".psd1",
+    # Data / config
+    ".json", ".yaml", ".yml", ".toml",
+    ".env", ".cfg", ".ini", ".conf",
+    # Web / style
+    ".html", ".htm", ".css", ".scss", ".sass", ".less",
+    # Other
+    ".sql", ".jl",
+}
 
 LANG_MAP = {
     ".py": "python",
-    ".js": "js",
-    ".mjs": "js",
+    ".js": "js", ".mjs": "js",
     ".ts": "ts",
     ".jsx": "jsx",
     ".tsx": "tsx",
+    ".md": "markdown", ".mdx": "markdown", ".markdown": "markdown",
+    ".sh": "shell", ".bash": "shell", ".zsh": "shell",
+    ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
+    ".json": "json",
+    ".yaml": "yaml", ".yml": "yaml",
+    ".toml": "toml",
+    ".html": "html", ".htm": "html",
+    ".css": "css", ".scss": "css", ".sass": "css", ".less": "css",
+    ".rs": "rust",
+    ".go": "go",
+    ".rb": "ruby",
+    ".java": "java",
+    ".c": "c", ".h": "c",
+    ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp",
+    ".cs": "csharp",
+    ".lua": "lua",
+    ".sql": "sql",
+    ".r": "r",
+    ".jl": "julia",
+    ".env": "config", ".cfg": "config", ".ini": "config", ".conf": "config",
 }
 
-MAX_FILES = int(os.getenv("CGRAPH_MAX_FILES", "500"))
+MAX_FILES = int(os.getenv("CGRAPH_MAX_FILES", "2000"))
 
-# JS/TS import patterns
+# ── JS/TS import patterns ────────────────────────────────────────────────────
 _JS_IMPORT_RE = re.compile(
     r"""(?:import\s.*?from\s+|require\s*\(\s*)['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+# ── Markdown local-link patterns ─────────────────────────────────────────────
+# Matches [text](path) and ![alt](path) — local relative links only
+_MD_LINK_RE = re.compile(
+    r"""!?\[[^\]]*\]\(([^)#\s]+)\)""",
+    re.MULTILINE,
+)
+
+# ── Shell source patterns ─────────────────────────────────────────────────────
+# source ./foo.sh  or  . ./foo.sh  or  bash ./foo.sh  or  sh ./foo.sh
+_SH_SOURCE_RE = re.compile(
+    r"""(?:^|(?<=\n))[ \t]*(?:source|\.|bash|sh)[ \t]+[\"']?([^\"'\s;#&|]+\.(?:sh|bash|zsh|ps1))""",
+    re.MULTILINE,
+)
+
+# ── PowerShell dot-source / call-operator patterns ───────────────────────────
+# . .\foo.ps1  or  & .\foo.ps1  or  . $PSScriptRoot\foo.ps1
+_PS1_DOTSOURCE_RE = re.compile(
+    r"""(?:^|(?<=\n))[ \t]*[.&][ \t]+(?:\$PSScriptRoot[/\\\\])?['"]?([^'"\s;]+\.ps[md]?1)""",
+    re.MULTILINE,
+)
+
+# ── HTML src/href patterns ────────────────────────────────────────────────────
+_HTML_REF_RE = re.compile(
+    r"""(?:src|href)=['"]([^'"#?]+)['"]""",
+    re.MULTILINE,
+)
+
+# ── CSS @import / url() patterns ─────────────────────────────────────────────
+_CSS_IMPORT_RE = re.compile(
+    r"""(?:@import\s+['"]([^'"]+)['"]|url\(['"]?([^'")?]+)['"]?\))""",
     re.MULTILINE,
 )
 
@@ -175,6 +251,130 @@ def _resolve_js(
     return None
 
 
+def _resolve_generic(
+    raw: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> str | None:
+    """Generic relative reference resolver for markdown / shell / html / css."""
+    # Skip URLs and empty strings
+    raw = raw.strip().strip('"\'')
+    if not raw or raw.startswith(("http", "//", "#", "data:", "mailto:")):
+        return None
+    # Strip PowerShell variable prefixes like $PSScriptRoot\
+    raw = re.sub(r"^\$[A-Za-z_]+[/\\]", "", raw)
+
+    base = file_path.parent
+    candidate = (base / raw).resolve()
+    probes = ["", ".py", ".js", ".ts", ".md", ".sh", ".ps1",
+               "/index.js", "/index.ts", "/README.md"]
+    for ext in probes:
+        p = Path(str(candidate) + ext)
+        try:
+            rel = p.relative_to(root.resolve())
+            cid = _node_id(str(rel))
+            if cid in all_ids:
+                return cid
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_md_links(
+    source: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> list[dict[str, Any]]:
+    """Parse markdown local file links → edges."""
+    edges: list[dict[str, Any]] = []
+    src_id = _node_id(str(file_path.relative_to(root)))
+    for m in _MD_LINK_RE.finditer(source):
+        raw = m.group(1)
+        # Skip absolute URLs and anchor-only links
+        if raw.startswith(("http", "//", "#", "data:")):
+            continue
+        resolved = _resolve_generic(raw, file_path, root, all_ids)
+        if resolved and resolved != src_id:
+            edges.append(_make_edge(src_id, resolved, "link"))
+    return edges
+
+
+def _parse_sh_sources(
+    source: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> list[dict[str, Any]]:
+    """Parse shell source/. references → edges."""
+    edges: list[dict[str, Any]] = []
+    src_id = _node_id(str(file_path.relative_to(root)))
+    for m in _SH_SOURCE_RE.finditer(source):
+        raw = m.group(1)
+        resolved = _resolve_generic(raw, file_path, root, all_ids)
+        if resolved and resolved != src_id:
+            edges.append(_make_edge(src_id, resolved, "source"))
+    return edges
+
+
+def _parse_ps1_sources(
+    source: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> list[dict[str, Any]]:
+    """Parse PowerShell dot-source / call-operator references → edges."""
+    edges: list[dict[str, Any]] = []
+    src_id = _node_id(str(file_path.relative_to(root)))
+    for m in _PS1_DOTSOURCE_RE.finditer(source):
+        raw = m.group(1)
+        resolved = _resolve_generic(raw, file_path, root, all_ids)
+        if resolved and resolved != src_id:
+            edges.append(_make_edge(src_id, resolved, "source"))
+    return edges
+
+
+def _parse_html_refs(
+    source: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> list[dict[str, Any]]:
+    """Parse HTML src= / href= local references → edges."""
+    edges: list[dict[str, Any]] = []
+    src_id = _node_id(str(file_path.relative_to(root)))
+    for m in _HTML_REF_RE.finditer(source):
+        raw = m.group(1)
+        if raw.startswith(("http", "//", "#", "data:", "mailto:")):
+            continue
+        resolved = _resolve_generic(raw, file_path, root, all_ids)
+        if resolved and resolved != src_id:
+            edges.append(_make_edge(src_id, resolved, "ref"))
+    return edges
+
+
+def _parse_css_imports(
+    source: str,
+    file_path: Path,
+    root: Path,
+    all_ids: set[str],
+) -> list[dict[str, Any]]:
+    """Parse CSS @import / url() local references → edges."""
+    edges: list[dict[str, Any]] = []
+    src_id = _node_id(str(file_path.relative_to(root)))
+    for m in _CSS_IMPORT_RE.finditer(source):
+        raw = m.group(1) or m.group(2)
+        if not raw:
+            continue
+        if raw.startswith(("http", "//", "data:")):
+            continue
+        resolved = _resolve_generic(raw, file_path, root, all_ids)
+        if resolved and resolved != src_id:
+            edges.append(_make_edge(src_id, resolved, "import"))
+    return edges
+
+
 def _make_edge(src: str, tgt: str, kind: str) -> dict[str, Any]:
     return {
         "data": {
@@ -258,12 +458,31 @@ def parse_directory(root_path: str | Path) -> dict[str, Any]:
         nodes.append(node)
 
     # --- Third pass: build edges ---
+    _JS_EXTS  = {".js", ".ts", ".jsx", ".tsx", ".mjs"}
+    _MD_EXTS  = {".md", ".mdx", ".markdown"}
+    _SH_EXTS  = {".sh", ".bash", ".zsh"}
+    _PS1_EXTS = {".ps1", ".psm1", ".psd1"}
+    _HTML_EXTS = {".html", ".htm"}
+    _CSS_EXTS  = {".css", ".scss", ".sass", ".less"}
+
     seen_edges: set[str] = set()
     for full, source, ext in file_data:
         if ext == ".py":
             new_edges = _parse_py_imports(source, full, root, all_ids)
-        else:
+        elif ext in _JS_EXTS:
             new_edges = _parse_js_imports(source, full, root, all_ids)
+        elif ext in _MD_EXTS:
+            new_edges = _parse_md_links(source, full, root, all_ids)
+        elif ext in _SH_EXTS:
+            new_edges = _parse_sh_sources(source, full, root, all_ids)
+        elif ext in _PS1_EXTS:
+            new_edges = _parse_ps1_sources(source, full, root, all_ids)
+        elif ext in _HTML_EXTS:
+            new_edges = _parse_html_refs(source, full, root, all_ids)
+        elif ext in _CSS_EXTS:
+            new_edges = _parse_css_imports(source, full, root, all_ids)
+        else:
+            new_edges = []
 
         for e in new_edges:
             eid = e["data"]["id"]

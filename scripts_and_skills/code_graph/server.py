@@ -152,7 +152,17 @@ if HAS_WATCHDOG:
 
         def _schedule(self, path: str) -> None:
             ext = Path(path).suffix.lower()
-            supported = {".py", ".js", ".ts", ".jsx", ".tsx", ".mjs"}
+            supported = {
+                ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs",
+                ".md", ".mdx", ".markdown",
+                ".sh", ".bash", ".zsh",
+                ".ps1", ".psm1", ".psd1",
+                ".json", ".yaml", ".yml", ".toml",
+                ".env", ".cfg", ".ini", ".conf",
+                ".html", ".htm", ".css", ".scss", ".sass", ".less",
+                ".rs", ".go", ".rb", ".java", ".cs", ".lua", ".sql",
+                ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp",
+            }
             if ext not in supported:
                 return
             now = time.time()
