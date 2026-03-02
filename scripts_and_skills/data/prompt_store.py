@@ -17,6 +17,7 @@ Usage:
 """
 
 import os
+import re
 import json
 import uuid
 import logging
@@ -46,6 +47,7 @@ SCHEMA = pa.schema([
     pa.field("dataset_name", pa.string()),          # logical dataset name
     pa.field("split",        pa.string()),          # train / test / val
     pa.field("conversations",pa.string()),          # JSON: [{from,value},...] ShareGPT format
+    pa.field("messages",     pa.string()),          # JSON: [{role,content,thinking},...] OpenAI/gpt-oss format
     pa.field("input",        pa.string()),          # raw input text (for simple pairs)
     pa.field("output",       pa.string()),          # raw output text (nullable)
     pa.field("description",  pa.string()),          # human-readable description (nullable)
@@ -54,6 +56,56 @@ SCHEMA = pa.schema([
     pa.field("created_at",   pa.string()),          # ISO 8601 timestamp
     pa.field("has_embedding",pa.bool_()),           # whether embedding exists in EmbeddingStore
 ])
+
+
+# ── Format conversion helpers ─────────────────────────────────────────────────
+
+def _is_openai_format(turns: List[Dict]) -> bool:
+    """Return True if turns uses OpenAI format (role/content), False for ShareGPT (from/value)."""
+    return bool(turns) and "role" in turns[0]
+
+
+def _openai_to_sharegpt(turns: List[Dict]) -> List[Dict]:
+    """Convert OpenAI messages [{role,content,thinking}] → ShareGPT [{from,value}].
+
+    For assistant messages with thinking, we embed the thinking inside <think> tags
+    so the content is recoverable from ShareGPT format if needed.
+    """
+    role_map = {"system": "system", "user": "human", "assistant": "gpt"}
+    result = []
+    for msg in turns:
+        role    = msg.get("role", "")
+        content = msg.get("content", "")
+        thinking = msg.get("thinking") or ""
+        sgpt_role = role_map.get(role, role)
+        if role == "assistant" and thinking:
+            value = f"<think>\n{thinking}\n</think>\n\n{content}"
+        else:
+            value = content
+        result.append({"from": sgpt_role, "value": value})
+    return result
+
+
+def _sharegpt_to_openai(turns: List[Dict]) -> List[Dict]:
+    """Convert ShareGPT [{from,value}] → OpenAI [{role,content,thinking}].
+
+    Extracts <think>...</think> blocks into the thinking field if present.
+    """
+    role_map = {"human": "user", "gpt": "assistant", "system": "system", "assistant": "assistant"}
+    result = []
+    for msg in turns:
+        sgpt_role = msg.get("from", "")
+        value     = msg.get("value", "")
+        role      = role_map.get(sgpt_role, sgpt_role)
+        thinking  = None
+        content   = value
+        if role == "assistant":
+            m = re.match(r"<think>\s*(.*?)\s*</think>\s*(.*)", value, re.DOTALL)
+            if m:
+                thinking = m.group(1).strip() or None
+                content  = m.group(2).strip()
+        result.append({"role": role, "content": content, "thinking": thinking})
+    return result
 
 
 class PromptStore:
@@ -79,7 +131,12 @@ class PromptStore:
         p = self._path(dataset_name)
         if not p.exists():
             return pd.DataFrame(columns=[f.name for f in SCHEMA])
-        return pd.read_parquet(p)
+        df = pd.read_parquet(p)
+        # Back-fill any columns added after the file was written (schema evolution)
+        for field in SCHEMA:
+            if field.name not in df.columns:
+                df[field.name] = False if field.type == pa.bool_() else ""
+        return df
 
     def _save(self, df: "pd.DataFrame", dataset_name: str):
         p = self._path(dataset_name)
@@ -88,12 +145,14 @@ class PromptStore:
 
     def _row(self, dataset_name: str, split: str, conversations: Optional[List[Dict]],
              input_text: str, output_text: str, description: str,
-             source: str, tags: List[str]) -> Dict:
+             source: str, tags: List[str],
+             openai_messages: Optional[List[Dict]] = None) -> Dict:
         return {
             "id":            str(uuid.uuid4()),
             "dataset_name":  dataset_name,
             "split":         split,
             "conversations": json.dumps(conversations) if conversations else "",
+            "messages":      json.dumps(openai_messages) if openai_messages else "",
             "input":         input_text or "",
             "output":        output_text or "",
             "description":   description or "",
@@ -106,20 +165,40 @@ class PromptStore:
     # ── Write ─────────────────────────────────────────────────────────────────
 
     def add_conversation(self, dataset_name: str,
-                         messages: List[Dict[str, str]],
+                         messages: List[Dict],
                          split: str = "train",
                          description: str = "",
                          source: str = "generated",
                          tags: Optional[List[str]] = None) -> str:
         """
-        Add a ShareGPT-format conversation.
-        messages = [{"from": "human", "value": "..."}, {"from": "gpt", "value": "..."}]
+        Add a conversation in either OpenAI or ShareGPT format.
+
+        OpenAI format (gpt-oss/Multilingual-Thinking compatible):
+          messages = [
+            {"role": "system",    "content": "...", "thinking": None},
+            {"role": "user",      "content": "...", "thinking": None},
+            {"role": "assistant", "content": "...", "thinking": "reasoning..."},
+          ]
+
+        ShareGPT format (legacy):
+          messages = [{"from": "human", "value": "..."}, {"from": "gpt", "value": "..."}]
+
+        Both are stored; the correct format is detected automatically.
         Returns the new row id.
         """
-        # Also store flattened input/output for the first human/gpt pair
-        inp = next((m["value"] for m in messages if m["from"] == "human"), "")
-        out = next((m["value"] for m in messages if m["from"] in ("gpt", "assistant")), "")
-        row = self._row(dataset_name, split, messages, inp, out, description, source, tags)
+        if _is_openai_format(messages):
+            openai_msgs  = messages
+            sharegpt     = _openai_to_sharegpt(messages)
+        else:
+            sharegpt     = messages
+            openai_msgs  = _sharegpt_to_openai(messages)
+
+        # Flatten first user/assistant pair for quick search/display
+        inp = next((m["value"] for m in sharegpt if m.get("from") == "human"), "")
+        out = next((m["value"] for m in sharegpt if m.get("from") in ("gpt", "assistant")), "")
+
+        row = self._row(dataset_name, split, sharegpt, inp, out, description, source, tags,
+                        openai_messages=openai_msgs)
         df = self._load_raw(dataset_name)
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         self._save(df, dataset_name)
@@ -309,6 +388,88 @@ class PromptStore:
         logger.info(f"Exported {written} rows to {out}")
         return str(out)
 
+    def _get_openai_messages(self, row: Dict) -> Optional[List[Dict]]:
+        """Extract OpenAI messages from a row, preferring the messages column."""
+        msgs_json = row.get("messages", "")
+        if msgs_json:
+            try:
+                return json.loads(msgs_json)
+            except Exception:
+                pass
+        convs_json = row.get("conversations", "")
+        if convs_json and convs_json != "null":
+            try:
+                return _sharegpt_to_openai(json.loads(convs_json))
+            except Exception:
+                pass
+        return None
+
+    def export_gpt_oss_parquet(self, dataset_name: str, output_path: str,
+                                split: Optional[str] = "train",
+                                reasoning_language: str = "English") -> str:
+        """
+        Export in HuggingFaceH4/Multilingual-Thinking compatible parquet format.
+
+        Produces columns: reasoning_language, developer, user, analysis, final, messages
+        This is directly loadable by Unsloth's standardize_sharegpt + apply_chat_template
+        pipeline for gpt-oss fine-tuning.
+
+        reasoning_language — injected into system message as "reasoning language: {lang}"
+                             so the model learns to reason in that language.
+        """
+        df = self.load(dataset_name, split=split)
+        rows = []
+
+        for _, row in df.iterrows():
+            msgs = self._get_openai_messages(row)
+            if not msgs:
+                continue
+
+            sys_msg  = next((m for m in msgs if m.get("role") == "system"),    None)
+            user_msg = next((m for m in msgs if m.get("role") == "user"),      None)
+            asst_msg = next((m for m in msgs if m.get("role") == "assistant"), None)
+
+            if not (user_msg and asst_msg):
+                continue
+
+            # Rebuild system content with reasoning language prefix (matches HF dataset style)
+            base_system = (sys_msg or {}).get("content", "You are a helpful AI assistant.")
+            full_system  = f"reasoning language: {reasoning_language}\n\n{base_system}"
+
+            analysis = (asst_msg.get("thinking") or "").strip()
+            final    = (asst_msg.get("content")  or "").strip()
+
+            # messages in OpenAI format with thinking — exactly as HF dataset
+            hf_messages = [
+                {"role": "system",    "content": full_system,         "thinking": None},
+                {"role": "user",      "content": user_msg["content"], "thinking": None},
+                {"role": "assistant", "content": final,               "thinking": analysis or None},
+            ]
+
+            rows.append({
+                "reasoning_language": reasoning_language,
+                "developer":          base_system,
+                "user":               user_msg["content"],
+                "analysis":           analysis,
+                "final":              final,
+                "messages":           hf_messages,
+            })
+
+        if not rows:
+            logger.warning(f"No exportable rows found in '{dataset_name}' split='{split}'")
+            return ""
+
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        out_df = pd.DataFrame(rows)
+        # messages column must be stored as JSON string for cross-tool compat
+        out_df["messages"] = out_df["messages"].apply(json.dumps)
+
+        out_df.to_parquet(str(out_path), index=False, compression="snappy")
+        logger.info(f"Exported {len(rows)} rows to {out_path} (gpt-oss parquet format)")
+        return str(out_path)
+
     def delete_dataset(self, dataset_name: str):
         p = self._path(dataset_name)
         if p.exists():
@@ -332,10 +493,16 @@ if __name__ == "__main__":
     p_search.add_argument("dataset")
     p_search.add_argument("query")
 
-    p_export = sub.add_parser("export", help="Export dataset to JSONL")
+    p_export = sub.add_parser("export", help="Export dataset to ShareGPT JSONL (Unsloth)")
     p_export.add_argument("dataset")
     p_export.add_argument("output")
     p_export.add_argument("--split", default="train")
+
+    p_export_hf = sub.add_parser("export-gpt-oss", help="Export dataset to gpt-oss parquet (HF/Unsloth compatible)")
+    p_export_hf.add_argument("dataset")
+    p_export_hf.add_argument("output")
+    p_export_hf.add_argument("--split", default="train")
+    p_export_hf.add_argument("--lang", default="English", help="Reasoning language injected into system prompt")
 
     args = parser.parse_args()
     store = PromptStore()
@@ -351,6 +518,9 @@ if __name__ == "__main__":
         print(df[["id", "input", "output"]].to_string())
     elif args.cmd == "export":
         path = store.export_unsloth(args.dataset, args.output, args.split)
+        print(f"Exported to: {path}")
+    elif args.cmd == "export-gpt-oss":
+        path = store.export_gpt_oss_parquet(args.dataset, args.output, args.split, args.lang)
         print(f"Exported to: {path}")
     else:
         parser.print_help()

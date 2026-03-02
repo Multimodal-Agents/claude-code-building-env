@@ -110,3 +110,4 @@ temp/
 # Claude Code local session state (auto-generated)
 .clauderc
 .claude_session*
+.claude/worktrees/

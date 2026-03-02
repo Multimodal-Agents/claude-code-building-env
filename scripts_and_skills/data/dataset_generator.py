@@ -43,6 +43,12 @@ GEN_MODEL    = os.getenv("OLLAMA_GEN_MODEL", "gpt-oss:20b")
 CHUNK_SIZE   = int(os.getenv("CHUNK_SIZE",  "1500"))   # chars per chunk
 CHUNK_OVERLAP= int(os.getenv("CHUNK_OVERLAP", "200"))
 
+# Default system prompt injected into every generated conversation
+DEFAULT_SYSTEM = os.getenv(
+    "GPT_OSS_SYSTEM",
+    "You are a helpful AI assistant."
+)
+
 
 # ── Document type detection ───────────────────────────────────────────────────
 
@@ -255,6 +261,93 @@ def generate_math_experiment_conversation(chunk: str,
     return []
 
 
+# ── GPT-OSS format generation (thinking + final answer) ──────────────────────
+
+def generate_qa_with_thinking(
+    chunk: str,
+    doc_type: str,
+    num_turns: int = 3,
+    model: str = GEN_MODEL,
+    system: str = DEFAULT_SYSTEM,
+) -> List[List[Dict]]:
+    """
+    Generate Q&A conversations in OpenAI messages format with chain-of-thought.
+
+    Matches the HuggingFaceH4/Multilingual-Thinking schema used by Unsloth
+    gpt-oss fine-tuning:
+      - "thinking" on assistant message  → <|channel|>analysis (internal CoT)
+      - "content"  on assistant message  → <|channel|>final    (user-visible answer)
+
+    Returns a list of message triplets, one per Q&A pair:
+      [
+        [
+          {"role": "system",    "content": "...", "thinking": None},
+          {"role": "user",      "content": "question", "thinking": None},
+          {"role": "assistant", "content": "answer",   "thinking": "reasoning..."},
+        ],
+        ...
+      ]
+    num_turns controls how many separate Q&A triplets are generated.
+    """
+    type_hints = {
+        "code":     "a software developer asking about the code",
+        "latex":    "a researcher or student asking about the academic content",
+        "markdown": "a technical reader asking about the documentation",
+        "plain":    "a curious reader asking questions",
+    }
+    persona = type_hints.get(doc_type, type_hints["plain"])
+
+    gen_system = textwrap.dedent(f"""
+        You are generating training data for an AI model with chain-of-thought reasoning.
+        Produce {num_turns} question-answer pairs grounded in the provided content.
+
+        For each pair output a JSON object with exactly these keys:
+          "question" — what {persona} would ask
+          "thinking" — detailed internal reasoning (informal, step-by-step, exploratory)
+          "answer"   — the clean, polished final response the user sees
+
+        Rules:
+        - Thinking must show genuine reasoning; it may be verbose and tentative
+        - Answer must NOT repeat the thinking verbatim — it is the final product
+        - Output ONLY a valid JSON array of objects, no markdown, no extra text
+    """).strip()
+
+    prompt = (
+        f"Content:\n```\n{chunk[:2000]}\n```\n\n"
+        f"Generate {num_turns} Q&A pairs as a JSON array:"
+    )
+
+    raw = _ollama_chat(
+        [{"role": "system", "content": gen_system},
+         {"role": "user",   "content": prompt}],
+        model,
+    )
+
+    try:
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list):
+            return []
+
+        result = []
+        for item in parsed:
+            q        = (item.get("question") or "").strip()
+            thinking = (item.get("thinking") or "").strip()
+            answer   = (item.get("answer")   or "").strip()
+            if not (q and answer):
+                continue
+            result.append([
+                {"role": "system",    "content": system,  "thinking": None},
+                {"role": "user",      "content": q,       "thinking": None},
+                {"role": "assistant", "content": answer,  "thinking": thinking or None},
+            ])
+        return result
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse thinking JSON: {e}\nRaw: {raw[:200]}")
+        return []
+
+
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
 class DatasetGenerator:
@@ -300,44 +393,54 @@ class DatasetGenerator:
         for i, chunk in enumerate(chunks):
             logger.info(f"  Chunk {i+1}/{len(chunks)}...")
 
-            # Main Q&A conversation
-            convs = generate_qa_conversation(chunk, doc_type, num_turns, self.model)
-            if convs:
-                if moderate:
-                    gpt_responses = " ".join(
-                        c["value"] for c in convs if c.get("from") == "gpt"
+            # Main Q&A — gpt-oss format: OpenAI messages with thinking field
+            qa_triplets = generate_qa_with_thinking(chunk, doc_type, num_turns, self.model)
+            if qa_triplets:
+                for triplet in qa_triplets:
+                    if moderate:
+                        asst = next((m for m in triplet if m["role"] == "assistant"), None)
+                        if asst:
+                            combined = " ".join(filter(None, [asst.get("content"), asst.get("thinking")]))
+                            if clf.check_harm(combined):
+                                logger.warning(f"  Moderation blocked chunk {i+1} of {path.name}")
+                                stats["failed"] += 1
+                                continue
+                    self.store.add_conversation(
+                        dataset_name, triplet,
+                        split=split,
+                        description=f"QA from {path.name} chunk {i+1}",
+                        source=str(path),
+                        tags=[doc_type, "qa", path.stem],
                     )
-                    if clf.check_harm(gpt_responses):
-                        logger.warning(f"  Moderation blocked chunk {i+1} of {path.name}")
-                        stats["failed"] += 1
-                        continue
-                self.store.add_conversation(
-                    dataset_name, convs,
-                    split=split,
-                    description=f"QA from {path.name} chunk {i+1}",
-                    source=str(path),
-                    tags=[doc_type, "qa", path.stem],
-                )
-                stats["conversations"] += 1
+                    stats["conversations"] += 1
             else:
                 stats["failed"] += 1
 
-            # Supplementary conversations
+            # Supplementary conversations (math / code tests) — also with thinking
             if generate_tests:
-                extra = []
+                extra_chunk = None
                 if doc_type == "code":
-                    extra = generate_code_tests_conversation(chunk, self.model)
+                    extra_chunk = chunk
+                    extra_type  = "code"
                 elif doc_type == "latex" and any(k in chunk for k in ["equation", "theorem", "proof"]):
-                    extra = generate_math_experiment_conversation(chunk, self.model)
-                if extra:
-                    self.store.add_conversation(
-                        dataset_name, extra,
-                        split=split,
-                        description=f"{'Tests' if doc_type=='code' else 'Math walkthrough'} from {path.name} chunk {i+1}",
-                        source=str(path),
-                        tags=[doc_type, "tests" if doc_type=="code" else "math", path.stem],
+                    extra_chunk = chunk
+                    extra_type  = "latex"
+
+                if extra_chunk:
+                    extra_triplets = generate_qa_with_thinking(
+                        extra_chunk, extra_type, num_turns=2, model=self.model
                     )
-                    stats["test_conversations"] += 1
+                    for triplet in extra_triplets:
+                        label = "Tests" if doc_type == "code" else "Math walkthrough"
+                        tag   = "tests" if doc_type == "code" else "math"
+                        self.store.add_conversation(
+                            dataset_name, triplet,
+                            split=split,
+                            description=f"{label} from {path.name} chunk {i+1}",
+                            source=str(path),
+                            tags=[doc_type, tag, path.stem],
+                        )
+                        stats["test_conversations"] += 1
 
         logger.info(f"Done: {stats['conversations']} conversations, "
                     f"{stats['test_conversations']} supplementary, "
@@ -397,28 +500,28 @@ class DatasetGenerator:
 
             chunks = chunk_plain(text)
             for i, chunk in enumerate(chunks):
-                convs = generate_qa_conversation(chunk, "plain", num_turns, self.model)
-                if not convs:
+                qa_triplets = generate_qa_with_thinking(chunk, "plain", num_turns, self.model)
+                if not qa_triplets:
                     stats["failed"] += 1
                     continue
 
-                if moderate:
-                    gpt_responses = " ".join(
-                        c["value"] for c in convs if c.get("from") == "gpt"
+                for triplet in qa_triplets:
+                    if moderate:
+                        asst = next((m for m in triplet if m["role"] == "assistant"), None)
+                        if asst:
+                            combined = " ".join(filter(None, [asst.get("content"), asst.get("thinking")]))
+                            if clf.check_harm(combined):
+                                logger.warning(f"  Moderation blocked conversation from: {title[:50]}")
+                                stats["failed"] += 1
+                                continue
+                    self.store.add_conversation(
+                        dataset_name, triplet,
+                        split=split,
+                        description=f"ArXiv: {title[:80]} chunk {i+1}",
+                        source=paper.get("arxiv_url", query),
+                        tags=["arxiv", "qa", query[:30]] + paper.get("categories", [])[:2],
                     )
-                    if clf.check_harm(gpt_responses):
-                        logger.warning(f"  Moderation blocked conversation from: {title[:50]}")
-                        stats["failed"] += 1
-                        continue
-
-                self.store.add_conversation(
-                    dataset_name, convs,
-                    split=split,
-                    description=f"ArXiv: {title[:80]} chunk {i+1}",
-                    source=paper.get("arxiv_url", query),
-                    tags=["arxiv", "qa", query[:30]] + paper.get("categories", [])[:2],
-                )
-                stats["conversations"] += 1
+                    stats["conversations"] += 1
 
         logger.info(f"ArXiv done: {stats['papers_found']} papers, "
                     f"{stats['conversations']} conversations, "
@@ -491,24 +594,25 @@ class DatasetGenerator:
 
             for i, chunk in enumerate(chunks):
                 guided = f"{context_hint}\n\n---\n\n{chunk}" if context_hint else chunk
-                convs = generate_qa_conversation(guided, "plain", num_turns, self.model)
-                if convs:
-                    if moderate:
-                        gpt_responses = " ".join(
-                            c["value"] for c in convs if c.get("from") == "gpt"
+                qa_triplets = generate_qa_with_thinking(guided, "plain", num_turns, self.model)
+                if qa_triplets:
+                    for triplet in qa_triplets:
+                        if moderate:
+                            asst = next((m for m in triplet if m["role"] == "assistant"), None)
+                            if asst:
+                                combined = " ".join(filter(None, [asst.get("content"), asst.get("thinking")]))
+                                if clf.check_harm(combined):
+                                    logger.warning(f"  Moderation blocked chunk {i+1} of {url[:50]}")
+                                    stats["failed"] += 1
+                                    continue
+                        self.store.add_conversation(
+                            dataset_name, triplet,
+                            split=split,
+                            description=f"Web: {title[:80]} chunk {i+1}",
+                            source=url,
+                            tags=["web-research", "qa", topic[:30]],
                         )
-                        if clf.check_harm(gpt_responses):
-                            logger.warning(f"  Moderation blocked chunk {i+1} of {url[:50]}")
-                            stats["failed"] += 1
-                            continue
-                    self.store.add_conversation(
-                        dataset_name, convs,
-                        split=split,
-                        description=f"Web: {title[:80]} chunk {i+1}",
-                        source=url,
-                        tags=["web-research", "qa", topic[:30]],
-                    )
-                    stats["conversations"] += 1
+                        stats["conversations"] += 1
                 else:
                     stats["failed"] += 1
 

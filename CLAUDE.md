@@ -88,6 +88,7 @@ official extension surface:
 | **CLAUDE.md**  | Here + per-project | Session-level context injection |
 | **Launcher**   | `run_claude.ps1` / `run_claude.sh` | Environment setup, model routing (Anthropic Pro or local Ollama) |
 | **Data Layer** | `scripts_and_skills/data/` | Parquet prompt DB, embeddings, dataset generator, ArXiv crawler, content moderation, web search |
+| **Code Graph** | `scripts_and_skills/code_graph/` | FastAPI graph server: import parser, watchdog, hook listener, Cytoscape terminal UI |
 | **Commands**   | `.claude/commands/` | Slash commands usable in any session |
 
 This layer works with **any future version** of the Claude Code CLI.
@@ -101,6 +102,8 @@ This layer works with **any future version** of the Claude Code CLI.
 | <!-- blues-terminal-execution | `scripts_and_skills/claude_skills/blues_skills/skills/blues-terminal-execution/` | Safe terminal command patterns (disabled — gpt-oss:20b handles this natively; re-enable if small models are added) --> |
 | **prompt-manager** | `scripts_and_skills/claude_skills/blues_skills/skills/prompt-manager/` | Store/search/export prompts and conversations via PromptStore + EmbeddingStore |
 | **code-parser** | `scripts_and_skills/claude_skills/blues_skills/skills/code-parser/` | Surgical codebase reading protocol — single tree scan, mental map, targeted reads only |
+| **speech-to-speech** | `scripts_and_skills/claude_skills/blues_skills/skills/speech-to-speech/` | Real-time voice pipeline: Mic → VAD → Whisper → LLM stream → edge-tts → (SVC) → speaker |
+| **cytoscape-playground** | `scripts_and_skills/claude_skills/blues_skills/skills/cytoscape-playground/` | Extends playground plugin with Cytoscape.js graph/network visualization; CDN for HTML playgrounds, npm setup for projects |
 
 ---
 
@@ -115,6 +118,9 @@ This layer works with **any future version** of the Claude Code CLI.
 | `/model-manager` | `.claude/commands/model-manager.md` | Manage Ollama models, Modelfiles, GGUFs, and LoRA adapters |
 | `/set-system` | `.claude/commands/set-system.md` | Interactively change a model's system prompt from a prompt set or free text |
 | `/show-dataset` | `.claude/commands/show-dataset.md` | View rows from any saved dataset — runs directly, zero-token overhead |
+| `/script-to-audio` | `.claude/commands/script-to-audio.md` | Parse a video script markdown, strip director notes, render sections to .wav via edge-tts / whisper-vits-svc |
+| `/speech` | `.claude/commands/speech.md` | Start real-time speech-to-speech voice mode; say "goodbye claude" to return to text chat |
+| `/code-graph` | `.claude/commands/code-graph.md` | Live terminal CRT code graph monitor — parse imports, watch edits, animate Claude changes |
 
 ---
 

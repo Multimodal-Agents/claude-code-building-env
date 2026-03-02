@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAUDE CODE ONTOLOGY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.31.0/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<style>
+/* ──────────────────────────────────────────────────────────────────
+   RESET
+────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ──────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Claude palette on dark warm grey
+────────────────────────────────────────────────────────────────── */
+:root {
+  /* Background layers — neutral dark grey */
+  --bg:   #131313;
+  --s1:   #191919;
+  --s2:   #1e1e1e;
+  --s3:   #252525;
+  --s4:   #2c2c2c;
+
+  /* Borders — subtle grey, slight warmth near interactive elements */
+  --bd:   #2e2e2e;
+  --bh:   #4a3a38;
+  --bx:   #604848;
+
+  /* Primary — Claude orange */
+  --fg:   #D77757;
+  --g2:   #c96840;
+  --gd:   #7a3e2a;
+  --gr:   #3d1e14;
+
+  /* Secondary — Claude red/coral */
+  --sec:  #E74856;
+  --scd:  #a83040;
+
+  /* Neutrals */
+  --pale: #e8c4b8;   /* warm light (readable labels) */
+  --mute: #8a6055;   /* muted warm */
+  --dark: #0a0809;   /* deepest background */
+
+  /* Accents */
+  --cyan:  #4fc3f7;  /* sky blue — particles, info */
+  --amber: #ffbf28;  /* edit flash */
+  --mag:   #cc66cc;  /* physics log */
+  --red:   #ff5566;  /* remove */
+
+  /* Glows */
+  --gw:    0 0 10px rgba(215,119,87,.60);
+  --gw-sm: 0 0 5px  rgba(215,119,87,.40);
+  --gw-r:  0 0 10px rgba(231,72,86,.60);
+  --gw-c:  0 0 10px rgba(79,195,247,.60);
+  --gw-a:  0 0 10px rgba(255,191,40,.60);
+
+  /* Layout */
+  --hh: 68px;
+  --sw: 290px;
+  --lh: 144px;
+  --font: 'JetBrains Mono','Cascadia Code','Fira Code',Consolas,monospace;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  overflow: hidden;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────
+   APP SHELL
+────────────────────────────────────────────────────────────────── */
+#app {
+  display: grid;
+  grid-template-rows: var(--hh) 1fr var(--lh);
+  width: 100%; height: 100%;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   HEADER
+────────────────────────────────────────────────────────────────── */
+#hdr {
+  grid-row: 1;
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px 0 0;
+  background: var(--s1);
+  border-bottom: 2px solid var(--sec);
+  overflow: visible;
+  z-index: 10;
+}
+
+/* ─── Crab wrap (absolute within header) ──────────────────────── */
+#crab-wrap {
+  position: absolute; left: 0; top: 0; right: 0; bottom: -2px;
+  pointer-events: none;
+  z-index: 50;
+}
+#crab-fx-cv {
+  position: absolute; left: 0; top: 0;
+  pointer-events: none; z-index: 49;
+}
+#crab {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  pointer-events: all; cursor: pointer; user-select: none;
+  color: #D77757;
+  text-shadow: 0 0 10px rgba(215,119,87,.7), 0 0 20px rgba(215,119,87,.3);
+  z-index: 51; left: 10px;
+  font-size: 16px; line-height: 1.17;
+  font-family: Consolas, 'Courier New', monospace;
+  white-space: pre;
+  letter-spacing: 0; word-spacing: 0;
+  margin: 0; padding: 0; border: 0;
+  display: block; overflow: visible;
+}
+#crab .cr-eye {
+  display: inline;
+  color: #000 !important;
+  text-shadow: none !important;
+  transition: color .15s;
+}
+#crab.angry .cr-eye { color: #D77757 !important; text-shadow: 0 0 8px rgba(215,119,87,.9) !important; }
+#crab .cr-leg { display: inline; position: relative; top: 0; transition: top 120ms ease; }
+
+/* ─── Logo / Title ────────────────────────────────────────────── */
+.logo {
+  font-size: 17px; font-weight: 800;
+  letter-spacing: 2.5px; white-space: nowrap;
+  color: var(--fg); text-shadow: var(--gw);
+  flex-shrink: 0;
+  margin-left: 118px;  /* crab clearance */
+}
+.logo-d  { color: var(--sec); font-weight: 400; }
+.logo-d2 { color: var(--scd); font-weight: 400; }
+
+/* ─── Connection pill ─────────────────────────────────────────── */
+#conn-pill {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--bd); padding: 4px 10px;
+  font-size: 12px; font-weight: 800; letter-spacing: 1.5px;
+  color: var(--gd); transition: all .25s; flex-shrink: 0;
+}
+#conn-pill.live { border-color: var(--sec); color: var(--fg); text-shadow: var(--gw-sm); }
+#cdot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gr); transition: all .25s;
+}
+#cdot.live { background: var(--sec); box-shadow: 0 0 10px var(--sec); }
+
+/* ─── Stat chips ──────────────────────────────────────────────── */
+#hdr-chips { display: flex; gap: 7px; flex-shrink: 0; }
+.hchip {
+  border: 1px solid var(--bd); padding: 3px 10px;
+  font-size: 11px; font-weight: 700; color: var(--gd);
+  white-space: nowrap; letter-spacing: .5px;
+}
+.hchip .v {
+  font-size: 16px; font-weight: 800;
+  color: var(--fg); text-shadow: var(--gw-sm);
+}
+.hchip.fps .v { font-size: 12px; color: var(--g2); }
+
+/* ─── Project selector ────────────────────────────────────────── */
+#proj-sel {
+  margin-left: auto; flex-shrink: 0;
+  background: var(--bg); color: var(--fg);
+  border: 1px solid var(--bh);
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  padding: 5px 9px; cursor: pointer; max-width: 210px;
+}
+#proj-sel option { background: var(--bg); }
+
+/* ──────────────────────────────────────────────────────────────────
+   BODY ROW
+────────────────────────────────────────────────────────────────── */
+#body {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: var(--sw) 1fr;
+  overflow: hidden;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SIDEBAR
+────────────────────────────────────────────────────────────────── */
+#side {
+  background: var(--s1);
+  border-right: 2px solid var(--bd);
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;
+  padding: 10px 8px; gap: 11px;
+}
+#side::-webkit-scrollbar { display: none; }
+
+/* Search */
+.srch { position: relative; }
+.srch-ic { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--gd); font-size: 15px; pointer-events: none; }
+#srch {
+  width: 100%; background: var(--dark); color: var(--fg);
+  border: 1px solid var(--bh);
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  padding: 7px 9px 7px 28px; outline: none;
+}
+#srch::placeholder { color: var(--gd); font-weight: 400; }
+#srch:focus { border-color: var(--fg); box-shadow: var(--gw-sm); }
+
+/* Panels */
+.pnl {
+  display: flex; flex-direction: column; gap: 5px;
+  border-left: 2px solid var(--sec);
+  padding-left: 8px;
+}
+.ph {
+  font-size: 13px; font-weight: 800; letter-spacing: 2px;
+  color: var(--sec); padding-bottom: 4px;
+  border-bottom: 1px solid var(--bd);
+  font-variant: all-small-caps;
+}
+.ph-icon { color: var(--fg); }
+
+/* Force grid */
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+
+/* Buttons */
+.btn {
+  background: var(--dark); color: var(--gd);
+  border: 1px solid var(--bd);
+  font-family: var(--font); font-size: 12px; font-weight: 800;
+  padding: 6px 8px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .8px;
+  transition: color .12s, border-color .12s, background .12s, text-shadow .12s;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.btn:hover { color: var(--fg); border-color: var(--bh); background: var(--s2); text-shadow: var(--gw-sm); }
+.btn.on   { color: var(--fg); border-color: var(--sec); background: var(--s2); text-shadow: var(--gw-sm); }
+.btn.amber { border-color: var(--amber); color: var(--amber); }
+.btn.amber:hover { background: #1a0e00; text-shadow: var(--gw-a); }
+.btn.cyan  { border-color: var(--cyan); color: var(--cyan); }
+.btn.cyan:hover  { background: #001520; text-shadow: var(--gw-c); }
+.btn.red { border-color: var(--sec); color: var(--sec); }
+.btn.red:hover { background: #1a0308; text-shadow: var(--gw-r); }
+
+/* Status lights */
+.lt { font-size: 10px; flex-shrink: 0; transition: color .2s, text-shadow .2s; }
+.lt.on  { color: var(--sec);  text-shadow: var(--gw-r); }
+.lt.off { color: var(--gr);  text-shadow: none; }
+
+/* Button row */
+.brow { display: flex; gap: 3px; flex-wrap: wrap; }
+
+/* Selects */
+.sel {
+  width: 100%; background: var(--dark); color: var(--fg);
+  border: 1px solid var(--bd);
+  font-family: var(--font); font-size: 12px; font-weight: 700;
+  padding: 6px 7px; cursor: pointer;
+}
+.sel option { background: var(--bg); }
+.sel-row { display: flex; gap: 3px; }
+.sel-row .sel { flex: 1; }
+
+/* Sliders */
+.slrow { display: flex; align-items: center; gap: 6px; }
+.sll { flex: 0 0 52px; font-size: 11px; font-weight: 800; color: var(--gd); letter-spacing: .5px; }
+.slrow input[type=range] { flex: 1; accent-color: var(--sec); cursor: pointer; height: 14px; }
+.slv { flex: 0 0 34px; font-size: 12px; font-weight: 800; color: var(--fg); text-align: right; }
+
+/* Toggles */
+.tog {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700;
+  color: var(--gd); cursor: pointer; letter-spacing: .3px;
+}
+.tog input[type=checkbox] { accent-color: var(--sec); width: 14px; height: 14px; cursor: pointer; }
+.tog:hover { color: var(--fg); }
+
+/* ──────────────────────────────────────────────────────────────────
+   CANVAS AREA
+────────────────────────────────────────────────────────────────── */
+#canvas-wrap {
+  position: relative; overflow: hidden;
+  background-color: #1e1e1e;
+  background-image:
+    radial-gradient(ellipse at 50% 45%, transparent 30%, #131313 80%),
+    radial-gradient(circle, #2c2c2c 1px, transparent 1px);
+  background-size: 100% 100%, 22px 22px;
+}
+#cy { width: 100%; height: 100%; position: relative; z-index: 1; }
+
+#hull-canvas {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+}
+
+/* Badge */
+#badge {
+  position: absolute; bottom: 13px; right: 15px;
+  font-size: 11px; font-weight: 800; letter-spacing: 2px;
+  color: transparent; transition: color .3s;
+  pointer-events: none; user-select: none; z-index: 10;
+}
+#badge.on { color: var(--fg); text-shadow: var(--gw); animation: blink 2.4s infinite; }
+@keyframes blink { 0%,80%{opacity:1} 88%{opacity:.25} 96%{opacity:1} }
+
+/* Tooltip */
+#tip {
+  position: absolute;
+  background: rgba(19,19,19,.97); border: 1px solid var(--fg);
+  padding: 10px 14px; display: none; pointer-events: auto;
+  max-width: 320px; z-index: 200; line-height: 1.9;
+  box-shadow: var(--gw);
+}
+.t-name { font-size: 16px; font-weight: 800; color: var(--fg); }
+.t-path { font-size: 11px; color: var(--gd); word-break: break-all; margin: 2px 0 6px; }
+.t-row  { font-size: 12px; font-weight: 700; color: var(--g2); }
+.t-row strong { color: var(--fg); font-weight: 800; }
+
+/* ──────────────────────────────────────────────────────────────────
+   LOG
+────────────────────────────────────────────────────────────────── */
+#log-wrap {
+  grid-row: 3;
+  display: flex; flex-direction: column;
+  min-height: 26px;
+  overflow: hidden;
+}
+#log-handle {
+  height: 26px; flex-shrink: 0;
+  background: var(--s2);
+  border-top: 2px solid var(--sec);
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px;
+  cursor: ns-resize; user-select: none;
+}
+#log-handle-grip {
+  font-size: 11px; color: var(--bd); letter-spacing: 2px; pointer-events: none;
+}
+#log-handle-title {
+  font-size: 11px; font-weight: 800; letter-spacing: 2px;
+  color: var(--gd); flex: 1; pointer-events: none;
+}
+#btn-log-toggle {
+  margin-left: auto; flex-shrink: 0;
+  background: none; border: 1px solid var(--bd);
+  color: var(--gd); font-family: var(--font);
+  font-size: 10px; font-weight: 800; padding: 2px 7px;
+  cursor: pointer; letter-spacing: 1px;
+  transition: color .12s, border-color .12s;
+}
+#btn-log-toggle:hover { color: var(--fg); border-color: var(--sec); }
+#log-status {
+  display: none; flex-shrink: 0; height: 22px;
+  background: var(--bg);
+  padding: 0 12px;
+  font-size: 10px; font-weight: 800; letter-spacing: 2px;
+  color: var(--gr); align-items: center;
+  border-top: 1px solid var(--bd);
+}
+#log {
+  flex: 1;
+  background: var(--s1);
+  overflow-y: auto; overflow-x: hidden;
+  padding: 0 12px 5px;
+}
+#log::-webkit-scrollbar { width: 3px; }
+#log::-webkit-scrollbar-track { background: var(--bg); }
+#log::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
+
+#log-hdr {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--s1);
+  font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--gd);
+  padding: 5px 0 3px; border-bottom: 1px solid var(--bd); margin-bottom: 2px;
+}
+.le {
+  display: flex; gap: 10px;
+  font-size: 12px; font-weight: 700; line-height: 1.9;
+  border-bottom: 1px solid #1e1214;
+}
+.le-ts  { color: var(--gr); flex: 0 0 68px; font-size: 10px; }
+.le-ev  { flex: 0 0 72px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+.le-msg { color: var(--gd); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.le-by  { flex: 0 0 60px; color: var(--gr); font-size: 10px; text-transform: uppercase; }
+.ev-change  { color: var(--amber); text-shadow: var(--gw-a); }
+.ev-add     { color: var(--cyan);  text-shadow: var(--gw-c); }
+.ev-remove  { color: var(--red);   text-shadow: 0 0 7px rgba(255,85,102,.6); }
+.ev-graph   { color: var(--fg);    text-shadow: var(--gw); }
+.ev-physics { color: var(--mag);   text-shadow: 0 0 7px rgba(204,102,204,.6); }
+.ev-info    { color: var(--gd); }
+.ev-crab    { color: #D77757;  text-shadow: 0 0 6px rgba(215,119,87,.5); }
+
+/* ──────────────────────────────────────────────────────────────────
+   TUTORIAL MODAL
+────────────────────────────────────────────────────────────────── */
+#tut-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(14,12,13,.88);
+  backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#tut-overlay.open { display: flex; }
+#tut-box {
+  background: var(--s1);
+  border: 2px solid var(--sec);
+  box-shadow: 0 0 40px rgba(231,72,86,.25);
+  max-width: 540px; width: 90%;
+  padding: 28px 32px;
+  position: relative;
+}
+#tut-close {
+  position: absolute; top: 12px; right: 16px;
+  cursor: pointer; font-size: 20px; color: var(--gd);
+  font-weight: 800; line-height: 1;
+  transition: color .15s;
+}
+#tut-close:hover { color: var(--sec); }
+.tut-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: 2.5px;
+  color: var(--sec); margin-bottom: 10px;
+}
+.tut-title {
+  font-size: 20px; font-weight: 800; letter-spacing: 1px;
+  color: var(--fg); text-shadow: var(--gw);
+  margin-bottom: 14px;
+}
+.tut-body {
+  font-size: 13px; font-weight: 700; line-height: 1.85;
+  color: var(--pale); margin-bottom: 20px;
+}
+.tut-body code {
+  background: var(--s3); padding: 1px 5px;
+  color: var(--sec); font-family: var(--font);
+}
+.tut-dots {
+  display: flex; gap: 6px; justify-content: center;
+  margin-bottom: 20px;
+}
+.tut-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bd); cursor: pointer; transition: background .2s;
+}
+.tut-dot.active { background: var(--sec); box-shadow: var(--gw-r); }
+.tut-nav { display: flex; gap: 8px; justify-content: flex-end; }
+.tut-nav .btn { min-width: 90px; justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- ─── HIDDEN FILTER DEFS ────────────────────────────────────── -->
+
+<div id="app">
+
+  <!-- ─── HEADER ─────────────────────────────────────────────── -->
+  <header id="hdr">
+    <!-- Claude crab (absolutely positioned, walks across header) -->
+    <div id="crab-wrap">
+      <canvas id="crab-fx-cv"></canvas>
+      <div id="crab" title="🦀 Click me!"> ▐▛███▜▌
+▝▜<span class="cr-eye cr-eye-l" id="cr-el">█</span>███<span class="cr-eye cr-eye-r" id="cr-er">█</span>▛▘
+<span class="cr-leg" id="cr-ol"> </span><span class="cr-leg" id="cr-il">▘▘</span>   <span class="cr-leg" id="cr-ir">▝▝</span><span class="cr-leg" id="cr-or"> </span></div>
+    </div>
+
+    <div class="logo">
+      <span class="logo-d">╭─</span>◈ CLAUDE CODE ONTOLOGY<span class="logo-d">─╮</span>
+    </div>
+    <div id="conn-pill">
+      <span id="cdot"></span>
+      <span id="ctxt">OFFLINE</span>
+    </div>
+    <div id="hdr-chips">
+      <div class="hchip">FILES <span class="v" id="sf">0</span></div>
+      <div class="hchip">EDGES <span class="v" id="se">0</span></div>
+      <div class="hchip fps">SIM <span class="v" id="sfps">—</span></div>
+    </div>
+    <select id="proj-sel"><option value="">── no project ──</option></select>
+  </header>
+
+  <!-- ─── BODY ROW ──────────────────────────────────────────── -->
+  <div id="body">
+
+    <!-- ─── SIDEBAR ─────────────────────────────────────── -->
+    <aside id="side">
+
+      <!-- Search -->
+      <div class="srch">
+        <span class="srch-ic">⌕</span>
+        <input id="srch" type="text" placeholder="search files…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <!-- Physics Forces -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">⬡</span> PHYSICS FORCES ]</div>
+        <div class="fg2">
+          <button class="btn on" id="f-bonds" title="Spring forces along import edges">
+            <span class="lt on" id="lt-bonds">●</span>⊞ BONDS
+          </button>
+          <button class="btn" id="f-flow" title="Import direction creates vertical flow — importees sink">
+            <span class="lt off" id="lt-flow">○</span>≋ FLOW↕
+          </button>
+          <button class="btn" id="f-lang" title="Same-language nodes repel each other">
+            <span class="lt off" id="lt-lang">○</span>⊛ LANG
+          </button>
+          <button class="btn" id="f-hubs" title="High-degree nodes become gravity wells">
+            <span class="lt off" id="lt-hubs">○</span>⊙ HUBS
+          </button>
+          <button class="btn on" id="f-grp" title="Same-directory nodes attract gently">
+            <span class="lt on" id="lt-grp">●</span>⊡ GROUP
+          </button>
+          <button class="btn" id="f-grav" title="Pairwise 1/r gravity — keeps islands in frame without hard anchor">
+            <span class="lt off" id="lt-grav">○</span>⊗ GRAV
+          </button>
+          <button class="btn" id="f-align" title="Soft depth lanes — BFS import depth → horizontal lane pull">
+            <span class="lt off" id="lt-align">○</span>⊟ ALIGN
+          </button>
+          <button class="btn on" id="f-ctr" title="Hard anchor — pulls all nodes to canvas centre">
+            <span class="lt on" id="lt-ctr">●</span>⊕ CNTR
+          </button>
+          <button class="btn" id="f-grprep" title="Extra repulsion between nodes in the same group — spreads them within the hull">
+            <span class="lt off" id="lt-grprep">○</span>⊠ GRP REP
+          </button>
+        </div>
+        <div class="brow">
+          <button class="btn" id="btn-live" style="flex:1"><span class="lt off" id="lt-live">○</span>LIVE</button>
+          <button class="btn cyan" id="btn-cluster">CLUSTER</button>
+          <button class="btn amber" id="btn-bang">◉ BANG</button>
+        </div>
+        <div class="slrow">
+          <span class="sll">SPRING</span>
+          <input type="range" id="sl-spr" min="40" max="280" value="90">
+          <span class="slv" id="sv-spr">90</span>
+        </div>
+        <div class="slrow">
+          <span class="sll">FLOW↕</span>
+          <input type="range" id="sl-flw" min="0" max="30" value="6">
+          <span class="slv" id="sv-flw">6</span>
+        </div>
+        <div class="slrow">
+          <span class="sll">REPEL</span>
+          <input type="range" id="sl-rep" min="1000" max="25000" step="500" value="7000">
+          <span class="slv" id="sv-rep">7k</span>
+        </div>
+        <div class="slrow">
+          <span class="sll">DAMP</span>
+          <input type="range" id="sl-dmp" min="50" max="98" value="85">
+          <span class="slv" id="sv-dmp">.85</span>
+        </div>
+        <div class="slrow">
+          <span class="sll">GRP REP</span>
+          <input type="range" id="sl-grprep" min="500" max="20000" step="500" value="4500">
+          <span class="slv" id="sv-grprep">4.5k</span>
+        </div>
+      </div>
+
+      <!-- Static Layout -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">▸</span> LAYOUT ]</div>
+        <div class="sel-row">
+          <select id="lay-sel" class="sel">
+            <option value="dagre">Dagre · hierarchy</option>
+            <option value="breadthfirst">Breadthfirst</option>
+            <option value="circle">Circle</option>
+            <option value="concentric">Concentric</option>
+          </select>
+          <select id="lay-dir" class="sel" style="max-width:88px">
+            <option value="TB">T→B</option>
+            <option value="LR">L→R</option>
+          </select>
+          <button class="btn" id="btn-lay">▶</button>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">⊟</span> FILTER ]</div>
+        <select id="lang-f" class="sel">
+          <option value="all">All languages</option>
+          <option value="python">◆ Python · .py</option>
+          <option value="js">◆ JavaScript · .js</option>
+          <option value="ts">◆ TypeScript · .ts</option>
+          <option value="jsx">◆ JSX · .jsx</option>
+          <option value="tsx">◆ TSX · .tsx</option>
+        </select>
+        <select id="grp-f" class="sel">
+          <option value="all">All directories</option>
+        </select>
+      </div>
+
+      <!-- Display -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">◎</span> DISPLAY ]</div>
+        <label class="tog"><input type="checkbox" id="ck-flow" checked> <span class="lt on">●</span> Edge flow anim</label>
+        <label class="tog"><input type="checkbox" id="ck-elbl"> <span class="lt off">○</span> Edge labels</label>
+        <label class="tog"><input type="checkbox" id="ck-sem"> <span class="lt off">○</span> Semantic edges</label>
+        <label class="tog"><input type="checkbox" id="ck-nbr" checked> <span class="lt on">●</span> Neighbour mode</label>
+        <label class="tog"><input type="checkbox" id="ck-sz" checked> <span class="lt on">●</span> Size by degree</label>
+        <label class="tog"><input type="checkbox" id="ck-hulls" checked> <span class="lt on">●</span> Group borders</label>
+        <label class="tog"><input type="checkbox" id="ck-sub-hulls"> <span class="lt off">○</span> Sub-dir beziers</label>
+        <label class="tog"><input type="checkbox" id="ck-depth"> <span class="lt off">○</span> Depth colours</label>
+      </div>
+
+      <!-- Actions -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">⊕</span> ACTIONS ]</div>
+        <button class="btn amber" id="btn-ref"><span class="lt off" id="lt-ref">○</span>↺ REFRESH</button>
+        <button class="btn" id="btn-sem"><span class="lt off" id="lt-sem">○</span>◈ SEMANTICS</button>
+        <div class="brow">
+          <button class="btn" id="btn-fit">FIT</button>
+          <button class="btn" id="btn-1x">1:1</button>
+          <button class="btn" id="btn-zi">[+]</button>
+          <button class="btn" id="btn-zo">[-]</button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="pnl">
+        <div class="ph">╭─[ <span class="ph-icon">⚙</span> SETTINGS ]</div>
+        <button class="btn red" id="btn-tut"><span class="lt off" id="lt-tut">○</span>? TUTORIAL</button>
+        <div class="brow">
+          <button class="btn" id="btn-fontup" title="Increase font size">A+</button>
+          <button class="btn" id="btn-fontdn" title="Decrease font size">A-</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ─── CANVAS ──────────────────────────────────────── -->
+    <div id="canvas-wrap">
+      <div id="cy"></div>
+      <canvas id="hull-canvas"></canvas>
+      <div id="tip">
+        <div class="t-name" id="t-name"></div>
+        <div class="t-path" id="t-path"></div>
+        <div id="t-rows"></div>
+      </div>
+      <div id="badge">⬡ LIVE PHYSICS</div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- ─── LOG ──────────────────────────────────────────────── -->
+  <div id="log-wrap">
+    <div id="log-handle">
+      <span id="log-handle-grip">━━━━━</span>
+      <span id="log-handle-title">╰─ ACTIVITY LOG</span>
+      <button id="btn-log-toggle" title="Collapse/expand log">▲</button>
+    </div>
+    <div id="log">
+      <div id="log-hdr">────────────────────────────────────────────────────────────────</div>
+    </div>
+    <div id="log-status">● ACTIVITY LOG COLLAPSED — DRAG HANDLE TO EXPAND</div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ─── TUTORIAL MODAL ──────────────────────────────────────── -->
+<div id="tut-overlay">
+  <div id="tut-box">
+    <div id="tut-close">✕</div>
+    <div class="tut-badge" id="tut-badge">01 / 07</div>
+    <div class="tut-title" id="tut-title"></div>
+    <div class="tut-body" id="tut-body"></div>
+    <div class="tut-dots" id="tut-dots"></div>
+    <div class="tut-nav">
+      <button class="btn" id="tut-prev">◀ PREV</button>
+      <button class="btn on" id="tut-next">NEXT ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ────────────────────────────────────────────────────────────────────
+   PHYSICS SIMULATION
+──────────────────────────────────────────────────────────────────── */
+class Sim {
+  constructor(cy) {
+    this.cy  = cy;
+    this.on  = false;
+    this.raf = null;
+    this.vel = {};
+
+    this.forces = {
+      bonds: true,
+      flow:  false,
+      lang:  false,
+      hubs:  false,
+      grp:   true,
+      ctr:   true,
+      grav:  false,
+      align: false,
+      grpRep: false,   /* extra repulsion between same-group nodes */
+    };
+
+    this.springLen  = 90;
+    this.springK    = 0.065;
+    this.repulsion  = 7000;
+    this.flowStr    = 6;
+    this.langRep    = 1800;
+    this.hubStr     = 0.9;
+    this.hubRadius  = 220;
+    this.groupGrav  = 0.006;
+    this.centreGrav = 0.003;
+    this.damping    = 0.85;
+    this.speedMax   = 18;
+    this.gravK      = 15;
+    this.laneH      = 110;
+    this.alignStr   = 0.006;
+    this.latK       = 0.003;
+    this.grpRepStr  = 4500;  /* intra-group extra repulsion strength */
+
+    this._lang   = {};
+    this._deg    = {};
+    this._depths = {};
+  }
+
+  toggle() { this.on ? this.stop() : this.start(); return this.on; }
+
+  start() {
+    if (this.on) return;
+    this.on = true;
+    this._loop();
+  }
+
+  stop() {
+    this.on = false;
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+    document.getElementById('sfps').textContent = '—';
+  }
+
+  kick(id, vx, vy) {
+    const v = this.vel[id] || (this.vel[id] = {x:0,y:0});
+    v.x += vx; v.y += vy;
+  }
+
+  bigBang() {
+    const W = this.cy.width()||800, H = this.cy.height()||600;
+    const cx = W/2, cy_ = H/2;
+    this.cy.nodes().forEach(n => {
+      const dx = n.position().x - cx, dy = n.position().y - cy_;
+      const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+      const sp = 32 + Math.random() * 20;
+      this.vel[n.id()] = { x: dx/d*sp, y: dy/d*sp };
+    });
+    if (!this.on) this.start();
+  }
+
+  _fps = 0; _fc = 0; _ft = 0;
+
+  _loop() {
+    if (!this.on) return;
+    const cy  = this.cy;
+    const W   = cy.width()  || 800;
+    const H   = cy.height() || 600;
+    const cx  = W / 2, cy_ = H / 2;
+
+    const nodes = cy.nodes(':visible');
+    const ids   = [];
+    nodes.forEach(n => {
+      ids.push(n.id());
+      this._lang[n.id()] = n.data('lang')||'';
+      this._deg[n.id()]  = n.degree(false);
+    });
+
+    if (ids.length > 0) {
+      for (const id of ids) if (!this.vel[id]) this.vel[id] = {x:0,y:0};
+
+      const P = {};
+      nodes.forEach(n => { P[n.id()] = {...n.position()}; });
+
+      const F = {};
+      for (const id of ids) F[id] = {x:0, y:0};
+
+      /* 1. Pairwise repulsion */
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i+1; j < ids.length; j++) {
+          const a = ids[i], b = ids[j];
+          const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y;
+          const d2 = dx*dx + dy*dy + 1;
+          const d  = Math.sqrt(d2);
+          const inv = 1/d;
+          let f = this.repulsion / d2;
+          if (this.forces.lang && this._lang[a] && this._lang[a] === this._lang[b])
+            f += this.langRep / d2;
+          const fx = f * dx * inv, fy = f * dy * inv;
+          F[a].x -= fx; F[a].y -= fy;
+          F[b].x += fx; F[b].y += fy;
+        }
+      }
+
+      /* 1b. Intra-group extra repulsion — spreads nodes within same group */
+      if (this.forces.grpRep) {
+        const _grpBuckets = {};
+        nodes.forEach(n => { const g = n.data('group')||'__'; (_grpBuckets[g]=_grpBuckets[g]||[]).push(n.id()); });
+        for (const members of Object.values(_grpBuckets)) {
+          if (members.length < 2) continue;
+          for (let i = 0; i < members.length; i++) {
+            for (let j = i+1; j < members.length; j++) {
+              const a = members[i], b = members[j];
+              if (!F[a] || !F[b]) continue;
+              const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y;
+              const d2 = dx*dx + dy*dy + 1;
+              const d  = Math.sqrt(d2);
+              const f  = this.grpRepStr / d2;
+              const fx = f * dx/d, fy = f * dy/d;
+              F[a].x -= fx; F[a].y -= fy;
+              F[b].x += fx; F[b].y += fy;
+            }
+          }
+        }
+      }
+
+      /* 2. Edge spring bonds */
+      if (this.forces.bonds) {
+        cy.edges(':visible').forEach(e => {
+          const s = e.source().id(), t = e.target().id();
+          if (!F[s] || !F[t]) return;
+          const dx = P[t].x - P[s].x, dy = P[t].y - P[s].y;
+          const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+          const f  = this.springK * (d - this.springLen);
+          const fx = f * dx/d, fy = f * dy/d;
+          F[s].x += fx; F[s].y += fy;
+          F[t].x -= fx; F[t].y -= fy;
+        });
+      }
+
+      /* 3. Directed flow gravity */
+      if (this.forces.flow && this.flowStr > 0) {
+        const fStr = this.flowStr * 0.08;
+        cy.edges(':visible').forEach(e => {
+          const s = e.source().id(), t = e.target().id();
+          if (!F[s] || !F[t]) return;
+          F[s].y -= fStr;
+          F[t].y += fStr;
+        });
+      }
+
+      /* 4. Hub gravity wells */
+      if (this.forces.hubs) {
+        for (let i = 0; i < ids.length; i++) {
+          const hub  = ids[i];
+          const hdeg = this._deg[hub];
+          if (hdeg < 4) continue;
+          const str = this.hubStr * hdeg * 0.5;
+          for (let j = 0; j < ids.length; j++) {
+            if (i === j) continue;
+            const sat = ids[j];
+            const dx  = P[hub].x - P[sat].x, dy = P[hub].y - P[sat].y;
+            const d   = Math.sqrt(dx*dx + dy*dy);
+            if (d > this.hubRadius || d < 5) continue;
+            const f = str / (d * d);
+            F[sat].x += f * dx; F[sat].y += f * dy;
+          }
+        }
+      }
+
+      /* 5. Group cohesion */
+      if (this.forces.grp) {
+        const grps = {};
+        nodes.forEach(n => { const g = n.data('group')||'__'; (grps[g]=grps[g]||[]).push(n.id()); });
+        for (const members of Object.values(grps)) {
+          if (members.length < 2) continue;
+          let gx=0, gy=0;
+          for (const id of members) { gx+=P[id].x; gy+=P[id].y; }
+          gx/=members.length; gy/=members.length;
+          for (const id of members) {
+            F[id].x += (gx - P[id].x) * this.groupGrav;
+            F[id].y += (gy - P[id].y) * this.groupGrav;
+          }
+        }
+      }
+
+      /* 6. Centre anchor */
+      if (this.forces.ctr) {
+        for (const id of ids) {
+          F[id].x += (cx - P[id].x) * this.centreGrav;
+          F[id].y += (cy_ - P[id].y) * this.centreGrav;
+        }
+      }
+
+      /* 7. Pairwise gravity 1/r */
+      if (this.forces.grav) {
+        for (let i = 0; i < ids.length; i++) {
+          for (let j = i+1; j < ids.length; j++) {
+            const a = ids[i], b = ids[j];
+            const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y;
+            const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+            if (d < 55) continue;
+            const f  = this.gravK / d;
+            const fx = f * dx/d, fy = f * dy/d;
+            F[a].x += fx; F[a].y += fy;
+            F[b].x -= fx; F[b].y -= fy;
+          }
+        }
+      }
+
+      /* 8. Depth lane alignment (soft rails) */
+      if (this.forces.align && Object.keys(this._depths).length > 0) {
+        const laneTopY = H * 0.12;
+        for (const id of ids) {
+          const depth = this._depths[id];
+          if (depth === undefined) continue;
+          const targetY = laneTopY + depth * this.laneH;
+          F[id].y += (targetY - P[id].y) * this.alignStr;
+        }
+        cy.edges(':visible').forEach(e => {
+          const s = e.source().id(), t = e.target().id();
+          if (!F[s] || !F[t]) return;
+          const ds = this._depths[s], dt = this._depths[t];
+          if (ds !== undefined && dt !== undefined && ds === dt) {
+            const dx = P[t].x - P[s].x;
+            F[s].x += dx * this.latK;
+            F[t].x -= dx * this.latK;
+          }
+        });
+      }
+
+      /* Integrate */
+      const upd = [];
+      for (const id of ids) {
+        const n = cy.getElementById(id);
+        if (n.grabbed()) { this.vel[id] = {x:0,y:0}; continue; }
+        const v = this.vel[id];
+        v.x = (v.x + F[id].x) * this.damping;
+        v.y = (v.y + F[id].y) * this.damping;
+        const spd = Math.sqrt(v.x*v.x + v.y*v.y);
+        if (spd > this.speedMax) { const r = this.speedMax/spd; v.x*=r; v.y*=r; }
+        upd.push({ id, x: P[id].x + v.x, y: P[id].y + v.y });
+      }
+
+      cy.startBatch();
+      for (const {id,x,y} of upd) cy.getElementById(id).position({x,y});
+      cy.endBatch();
+    }
+
+    this._fc++;
+    const now = performance.now();
+    if (now - this._ft >= 1000) {
+      document.getElementById('sfps').textContent = this._fc + 'fps';
+      this._fc = 0; this._ft = now;
+    }
+
+    this.raf = requestAnimationFrame(() => this._loop());
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CLUSTER LAYOUT
+──────────────────────────────────────────────────────────────────── */
+function clusterLayout() {
+  const nodes = cy.nodes(':visible');
+  if (!nodes.length) return;
+  const grps = {};
+  nodes.forEach(n => { const g = n.data('group')||'__'; (grps[g]=grps[g]||[]).push(n); });
+  const keys = Object.keys(grps).sort();
+  const W = cy.width()||900, H = cy.height()||600;
+  const R = Math.min(W, H) * 0.36;
+  cy.startBatch();
+  keys.forEach((k, gi) => {
+    const mbs = grps[k], n = keys.length;
+    const ang = (gi/n)*2*Math.PI - Math.PI/2;
+    const gx  = n===1 ? W/2 : W/2 + R*Math.cos(ang);
+    const gy  = n===1 ? H/2 : H/2 + R*Math.sin(ang);
+    const ir  = Math.max(18, mbs.length*12);
+    mbs.forEach((nd, mi) => {
+      const a = (mi/mbs.length)*2*Math.PI;
+      nd.position({ x: gx + ir*Math.cos(a) + (Math.random()-.5)*8,
+                    y: gy + ir*Math.sin(a) + (Math.random()-.5)*8 });
+    });
+  });
+  cy.endBatch();
+  Object.keys(sim.vel).forEach(k => { sim.vel[k]={x:0,y:0}; });
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   DEPTH COLOURS
+──────────────────────────────────────────────────────────────────── */
+function computeDepths(cy) {
+  const depths = {};
+  const entries = cy.nodes().filter(n => n.indegree() === 0);
+  if (!entries.length) return depths;
+  const queue = [];
+  entries.forEach(n => { depths[n.id()] = 0; queue.push(n.id()); });
+  let i = 0;
+  while (i < queue.length) {
+    const cur = queue[i++];
+    const d   = depths[cur];
+    cy.getElementById(cur).outgoers('node').forEach(nb => {
+      const nid = nb.id();
+      if (depths[nid] === undefined) { depths[nid] = d + 1; queue.push(nid); }
+      else if (d + 1 > depths[nid])  { depths[nid] = d + 1; }
+    });
+  }
+  return depths;
+}
+
+function depthFill(depth, maxDepth) {
+  if (!maxDepth) return '#110d0e';
+  const t = Math.min(depth / maxDepth, 1);
+  const h = Math.round(185 + t * 80);
+  const l = Math.round(8  + t * 3);
+  return `hsl(${h},70%,${l}%)`;
+}
+
+let showDepth = false;
+
+function applyDepthColors(depths) {
+  if (!showDepth) return;
+  const vals = Object.values(depths);
+  const maxD = vals.length ? Math.max(...vals) : 0;
+  cy.nodes().forEach(n => {
+    const d = depths[n.id()];
+    n.style({ 'background-color': d !== undefined ? depthFill(d, maxD) : '#110d0e' });
+  });
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CONVEX HULL + LIQUID GLASS CANVAS RENDERING
+──────────────────────────────────────────────────────────────────── */
+const GLASS_RGB = [
+  [57, 255, 100],   [0, 200, 255],   [200, 100, 255],
+  [255, 200, 0],    [255, 100, 60],  [0, 160, 230],
+  [180, 60, 255],   [100, 255, 200],
+];
+
+const _glassColors = {};
+let   _glassCI     = 0;
+function glassColor(grp) {
+  if (!_glassColors[grp]) {
+    _glassColors[grp] = GLASS_RGB[_glassCI++ % GLASS_RGB.length];
+  }
+  return _glassColors[grp];
+}
+
+/* Cached hull data */
+const _hullCentroids = {};
+const _hullPolygons  = {};    /* {grp: [{x,y}...]} for point-in-polygon */
+const _hullLabelOp   = {};    /* {grp: 0..1} label opacity (1=visible, fades out on hover) */
+let   _hullHoverGrp  = null;
+
+/* Parallax — mouse offset from canvas centre (updated on mousemove) */
+let _plxX = 0, _plxY = 0;
+
+/* Point-in-polygon (ray casting) */
+function pointInPoly(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length-1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+    if (((yi > py) !== (yj > py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function convexHull(pts) {
+  if (pts.length < 3) return pts;
+  pts = pts.slice().sort((a,b) => a.x !== b.x ? a.x-b.x : a.y-b.y);
+  const cross = (O,A,B) => (A.x-O.x)*(B.y-O.y) - (A.y-O.y)*(B.x-O.x);
+  const lower = [], upper = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  for (let i = pts.length-1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop(); lower.pop();
+  return lower.concat(upper);
+}
+
+function expandHull(hull, pad) {
+  if (hull.length < 2) return hull;
+  let cx=0, cy=0;
+  for (const p of hull) { cx+=p.x; cy+=p.y; }
+  cx/=hull.length; cy/=hull.length;
+  return hull.map(p => {
+    const dx=p.x-cx, dy=p.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
+    return { x: p.x + dx/d*pad, y: p.y + dy/d*pad };
+  });
+}
+
+function drawSmoothPath(ctx, hull) {
+  const n = hull.length;
+  if (!n) return;
+  if (n < 3) {
+    ctx.moveTo(hull[0].x, hull[0].y);
+    for (let i=1; i<n; i++) ctx.lineTo(hull[i].x, hull[i].y);
+    return;
+  }
+  const mid = (a,b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
+  const m0 = mid(hull[n-1], hull[0]);
+  ctx.moveTo(m0.x, m0.y);
+  for (let i=0; i<n; i++) {
+    const m = mid(hull[i], hull[(i+1)%n]);
+    ctx.quadraticCurveTo(hull[i].x, hull[i].y, m.x, m.y);
+  }
+}
+
+function drawGroupBorder(ctx, hull, rgb, label, labelOp) {
+  if (!hull.length) return;
+
+  let cx=0, cy_=0;
+  for (const p of hull) { cx+=p.x; cy_+=p.y; }
+  cx/=hull.length; cy_/=hull.length;
+
+  const [r,g,b] = rgb;
+
+  /* Outer glow */
+  ctx.save();
+  ctx.beginPath(); drawSmoothPath(ctx, hull); ctx.closePath();
+  ctx.shadowColor = `rgba(${r},${g},${b},0.40)`;
+  ctx.shadowBlur  = 16;
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.16)`;
+  ctx.lineWidth   = 6;
+  ctx.stroke();
+  ctx.restore();
+
+  /* Crisp border */
+  ctx.save();
+  ctx.beginPath(); drawSmoothPath(ctx, hull); ctx.closePath();
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.72)`;
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  /* Label — parallax offset + 3D shadow, fades with labelOp */
+  if (labelOp > 0.01) {
+    const plxFactor = 0.045;
+    const lx = cx + _plxX * plxFactor;
+    const ly = cy_ - 16 + _plxY * plxFactor;
+    ctx.save();
+    ctx.globalAlpha = labelOp;
+    /* 3D shadow layer */
+    ctx.fillStyle = `rgba(0,0,0,0.55)`;
+    ctx.font = '800 14px "JetBrains Mono",monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label.split(/[/\\]/).pop().toUpperCase(), lx+2, ly+2);
+    /* Main label */
+    ctx.fillStyle = `rgba(${r},${g},${b},0.90)`;
+    ctx.shadowColor = `rgba(${r},${g},${b},0.60)`;
+    ctx.shadowBlur  = 12;
+    ctx.fillText(label.split(/[/\\]/).pop().toUpperCase(), lx, ly);
+    ctx.restore();
+  }
+}
+
+let showHulls     = true;
+let showSubHulls  = false;
+let _hullInterval = null;
+
+function resizeCanvases() {
+  const wrap = document.getElementById('canvas-wrap');
+  const w = wrap.offsetWidth || 800;
+  const h = wrap.offsetHeight || 600;
+  const hc = document.getElementById('hull-canvas');
+  if (hc) { hc.width = w; hc.height = h; }
+}
+
+function updateHulls() {
+  const hc  = document.getElementById('hull-canvas');
+  if (!hc || !cy) return;
+
+  const wrap = document.getElementById('canvas-wrap');
+  if (hc.width !== wrap.offsetWidth || hc.height !== wrap.offsetHeight) resizeCanvases();
+
+  const ctx = hc.getContext('2d');
+  ctx.clearRect(0, 0, hc.width, hc.height);
+  if (!showHulls) return;
+
+  const grps = {};
+  cy.nodes(':visible').not('.faded').forEach(n => {
+    const g = n.data('group');
+    if (!g) return;
+    const rp = n.renderedPosition();
+    (grps[g] = grps[g]||[]).push({ x: rp.x, y: rp.y });
+  });
+
+  for (const [grp, pts] of Object.entries(grps)) {
+    if (pts.length < 2) continue;
+    const hull = convexHull(pts);
+    const exp  = expandHull(hull, 28);
+    if (!exp.length) continue;
+    const rgb  = glassColor(grp);
+
+    /* Cache centroid + polygon for hover detection */
+    let cx=0, cy_=0;
+    for (const p of exp) { cx+=p.x; cy_+=p.y; }
+    _hullCentroids[grp] = { x: cx/exp.length, y: cy_/exp.length };
+    _hullPolygons[grp]  = exp;
+
+    /* Smooth label opacity — fades to 0 when mouse inside hull, back to 1 when outside */
+    if (_hullLabelOp[grp] === undefined) _hullLabelOp[grp] = 1.0;
+    const inside = _hullHoverGrp === grp;
+    const target = inside ? 0.0 : 1.0;
+    const speed  = inside ? 0.025 : 0.06; /* slow fade out, quicker restore */
+    _hullLabelOp[grp] += (target - _hullLabelOp[grp]) * speed;
+
+    drawGroupBorder(ctx, exp, rgb, grp, _hullLabelOp[grp]);
+  }
+
+  /* Sub-directory bezier hulls */
+  if (showSubHulls) {
+    const subgrps = {};
+    cy.nodes(':visible').not('.faded').forEach(n => {
+      const parts = n.id().split('/');
+      if (parts.length < 3) return;  /* skip top-level or root files */
+      const sg = parts[0] + '/' + parts[1];
+      const rp = n.renderedPosition();
+      (subgrps[sg] = subgrps[sg]||[]).push({ x: rp.x, y: rp.y });
+    });
+    for (const [sg, pts] of Object.entries(subgrps)) {
+      if (pts.length < 2) continue;
+      const hull = convexHull(pts);
+      const exp  = expandHull(hull, 14);
+      if (!exp.length) continue;
+      const rgb  = glassColor(sg.split('/')[0]);  /* inherit parent group colour */
+      const [r,g,b_] = rgb;
+      /* Dashed border — thinner, dimmer than parent hull */
+      ctx.save();
+      ctx.beginPath(); drawSmoothPath(ctx, exp); ctx.closePath();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = `rgba(${r},${g},${b_},0.45)`;
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      /* Sub-label */
+      const slx = exp.reduce((s,p)=>s+p.x, 0)/exp.length;
+      const sly = exp.reduce((s,p)=>s+p.y, 0)/exp.length;
+      ctx.font      = '700 10px "JetBrains Mono",monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(${r},${g},${b_},0.55)`;
+      ctx.fillText(sg.split('/').pop().toUpperCase(), slx, sly - 8);
+      ctx.restore();
+    }
+  }
+}
+
+/* ── Hull hover + parallax tracking ───────────────────────── */
+document.getElementById('canvas-wrap').addEventListener('mousemove', e => {
+  const wrap = document.getElementById('canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  /* Parallax: offset from centre of canvas */
+  _plxX = mx - rect.width  / 2;
+  _plxY = my - rect.height / 2;
+
+  /* Point-in-polygon hull test */
+  let hit = null;
+  for (const [grp, poly] of Object.entries(_hullPolygons)) {
+    if (pointInPoly(mx, my, poly)) { hit = grp; break; }
+  }
+  _hullHoverGrp = hit;
+});
+
+/* ── Resize → immediate hull redraw ──────────────────────── */
+window.addEventListener('resize', () => { resizeCanvases(); updateHulls(); });
+
+
+/* ────────────────────────────────────────────────────────────────────
+   CLAUDE CRAB 🦀
+──────────────────────────────────────────────────────────────────── */
+const crabEl   = document.getElementById('crab');
+const crabFxCv = document.getElementById('crab-fx-cv');
+const crabFxCx = crabFxCv.getContext('2d');
+
+let crabX       = 10;
+let crabTargetX = 10;
+let crabFrame   = 0;
+let crabMoving  = false;
+let crabWalkTmr = null;
+const CRAB_HOME      = 10;
+const CRAB_MAX_SPEED = 3.85;
+const CRAB_LERP      = 0.11;
+
+const crabFxParts = [];
+
+function crabSetEyes(angry) {
+  crabEl.classList.toggle('angry', angry);
+  document.getElementById('cr-el').textContent = angry ? '>' : '█';
+  document.getElementById('cr-er').textContent = angry ? '<' : '█';
+  if (angry) setTimeout(() => crabSetEyes(false), 900);
+}
+
+function crabSetFrame(f) {
+  crabFrame = f;
+  const olEl = document.getElementById('cr-ol');
+  const orEl = document.getElementById('cr-or');
+  const ilEl = document.getElementById('cr-il');
+  const irEl = document.getElementById('cr-ir');
+  /* Outer legs up on frame 0, inner up on frame 1 */
+  olEl.style.top = f === 0 ? '-3px' : '0';
+  orEl.style.top = f === 0 ? '-3px' : '0';
+  ilEl.style.top = f === 1 ? '-3px' : '0';
+  irEl.style.top = f === 1 ? '-3px' : '0';
+}
+
+function spawnCrabParticles() {
+  const rect    = crabEl.getBoundingClientRect();
+  const hdrRect = document.getElementById('hdr').getBoundingClientRect();
+  const baseX   = rect.left - hdrRect.left + rect.width * 0.25;
+  const baseY   = rect.bottom - hdrRect.top - 2;
+  for (let i = 0; i < 4; i++) {
+    crabFxParts.push({
+      x: baseX + Math.random() * rect.width * 0.5,
+      y: baseY,
+      vx: (Math.random() - 0.5) * 2.2,
+      vy: -Math.random() * 2.5 - 0.5,
+      r: 1.5 + Math.random() * 1.5,
+      life: 1.0,
+    });
+  }
+}
+
+function resizeCrabFx() {
+  const hdr = document.getElementById('hdr');
+  crabFxCv.width  = hdr.offsetWidth;
+  crabFxCv.height = hdr.offsetHeight;
+  crabFxCv.style.width  = hdr.offsetWidth  + 'px';
+  crabFxCv.style.height = hdr.offsetHeight + 'px';
+}
+resizeCrabFx();
+window.addEventListener('resize', resizeCrabFx);
+
+function crabLoop() {
+  const prevX = crabX;
+  const diff  = crabTargetX - crabX;
+  const step  = diff * CRAB_LERP;
+  const clamped = Math.sign(step) * Math.min(Math.abs(step), CRAB_MAX_SPEED);
+  crabX += clamped;
+  crabMoving = Math.abs(crabX - prevX) > 0.3;
+
+  /* Start/stop walk cycle */
+  if (crabMoving && !crabWalkTmr) {
+    crabWalkTmr = setInterval(() => {
+      crabSetFrame(1 - crabFrame);
+      if (crabMoving) spawnCrabParticles();
+    }, 200);
+  } else if (!crabMoving && crabWalkTmr) {
+    clearInterval(crabWalkTmr); crabWalkTmr = null;
+    crabSetFrame(0);
+  }
+
+  crabEl.style.left = Math.round(crabX) + 'px';
+
+  /* Draw foot particles */
+  crabFxCx.clearRect(0, 0, crabFxCv.width, crabFxCv.height);
+  for (let i = crabFxParts.length-1; i >= 0; i--) {
+    const p = crabFxParts[i];
+    p.life -= 0.07;
+    if (p.life <= 0) { crabFxParts.splice(i, 1); continue; }
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.10; /* gravity */
+    crabFxCx.fillStyle = `rgba(79,195,247,${p.life * 0.85})`;
+    crabFxCx.beginPath();
+    crabFxCx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2);
+    crabFxCx.fill();
+  }
+
+  requestAnimationFrame(crabLoop);
+}
+crabLoop();
+
+/* Crab input */
+const hdr = document.getElementById('hdr');
+hdr.addEventListener('mousemove', e => {
+  const rect = hdr.getBoundingClientRect();
+  crabTargetX = Math.max(8, Math.min(rect.width - 80, e.clientX - rect.left - 40));
+});
+hdr.addEventListener('mouseleave', () => { crabTargetX = CRAB_HOME; });
+
+crabEl.addEventListener('mousedown', e => {
+  e.stopPropagation();
+  crabSetEyes(true);
+  /* Easter egg on shift+click */
+  if (e.shiftKey) {
+    logEntry('crab', '🦀 SIDEWAYS IS THE ONLY WAY', '');
+    if (sim) sim.bigBang();
+  }
+});
+
+/* Random crab tips */
+const CRAB_TIPS = [
+  '🦀 Tip: CNTR off + GRAV on = natural island physics',
+  '🦀 Tip: ALIGN force soft-rails imports into depth lanes',
+  '🦀 Tip: Shift+click the crab for CHAOS MODE',
+  '🦀 Tip: Hover over group labels to hide them gracefully',
+  '🦀 Did you know? This graph is basically a crab colony',
+  '🦀 Tip: Drag a node → neighbours get a physics kick',
+  '🦀 Tip: SEMANTICS button embeds all files via Ollama',
+  '🦀 Fact: All software is crabs. The crabs run on electrons.',
+  '🦀 Tip: Click any node to highlight its import chain',
+  '🦀 Tip: BANG button = Big Bang expansion. Crab approved.',
+];
+setInterval(() => {
+  if (Math.random() < 0.006) {
+    const tip = CRAB_TIPS[Math.floor(Math.random() * CRAB_TIPS.length)];
+    logEntry('crab', tip, '🦀');
+  }
+}, 1000);
+
+/* ────────────────────────────────────────────────────────────────────
+   TUTORIAL SYSTEM
+──────────────────────────────────────────────────────────────────── */
+const TUT_SLIDES = [
+  {
+    title: '🦀 Welcome to Claude Code Ontology',
+    body: `This is a <strong>live codebase visualization</strong> that maps import relationships as an interactive physics graph.<br><br>
+Every node is a file. Every edge is an import. The layout shows you how your code is structured — just by looking at it.<br><br>
+<code>🦀 Click the crab. He's part of the team.</code>`,
+  },
+  {
+    title: '⬡ Physics Forces',
+    body: `The graph is alive — driven by <strong>8 independent physics forces</strong>:<br><br>
+<code>⊞ BONDS</code> — spring tension along import edges<br>
+<code>≋ FLOW↕</code> — entry scripts float up, utilities sink<br>
+<code>⊟ ALIGN</code> — soft depth lanes by BFS import depth<br>
+<code>⊗ GRAV</code> — pairwise 1/r gravity keeps islands visible<br>
+<code>⊡ GROUP</code> — same-directory cohesion<br><br>
+Toggle any force with the sidebar buttons. The graph evolves in real-time.`,
+  },
+  {
+    title: '🔍 Filters & Search',
+    body: `Use the <strong>search box</strong> to highlight files by name.<br><br>
+Filter by <strong>language</strong> (Python, JS, TS…) or <strong>directory</strong> using the dropdowns.<br><br>
+<strong>Neighbour mode</strong> (on by default): click any node to highlight its immediate import neighbourhood. Click the background to clear.<br><br>
+<strong>Size by degree</strong>: hub files (imported by many) appear larger.`,
+  },
+  {
+    title: '⬡ Group Borders',
+    body: `Smooth bezier outlines group files by <strong>directory</strong>.<br><br>
+Each group gets a unique colour. Hover near a label to hide it.<br><br>
+Toggle borders off in <code>DISPLAY → Group borders</code>.`,
+  },
+  {
+    title: '🔥 Semantic Drift (Ollama)',
+    body: `When <strong>Ollama</strong> is running with <code>nomic-embed-text</code>, the server automatically embeds all files on startup as a baseline.<br><br>
+Every time a file is edited (by Claude or manually), it's re-embedded. <strong>Cosine distance from baseline = drift</strong>:<br><br>
+<code style="color:#cc8800">faint amber border</code> — 4%+ drift<br>
+<code style="color:#ff9900">orange glow</code> — 10%+ drift<br>
+<code style="color:#ff6600">blazing corona</code> — 20%+ drift<br><br>
+Hover any node to see its DRIFT % in the tooltip.`,
+  },
+  {
+    title: '🔗 Hook Integration',
+    body: `To track <strong>Claude's edits live</strong>, a PostToolUse hook is configured in <code>.claude/settings.json</code>.<br><br>
+When Claude edits any file, <code>hook_notify.py</code> fires silently and the node flashes <strong>amber</strong> in the graph — labeled <code>CLAUDE</code>.<br><br>
+The hook is a no-op if the graph server isn't running, so it's safe to leave globally enabled.<br><br>
+Start the server: <code>python -m scripts_and_skills.code_graph.server --path &lt;project&gt;</code>`,
+  },
+  {
+    title: '⚙ Tips & Tricks',
+    body: `<strong>Keyboard shortcuts:</strong><br>
+• <code>FIT</code> — fit all nodes in view<br>
+• <code>CLUSTER</code> — radial directory layout, physics restarts<br>
+• <code>◉ BANG</code> — Big Bang explosion + settle<br><br>
+<strong>Easter eggs:</strong><br>
+• Shift+click the 🦀 crab for CHAOS MODE<br>
+• The crab leaves pixel footprints<br>
+• Wait for random crab tips in the activity log<br>
+• <em>"All software is crabs. The crabs run on electrons."</em>`,
+  },
+];
+
+let tutIdx = 0;
+
+function tutRender() {
+  const s = TUT_SLIDES[tutIdx];
+  document.getElementById('tut-badge').textContent  = `${String(tutIdx+1).padStart(2,'0')} / ${TUT_SLIDES.length.toString().padStart(2,'0')}`;
+  document.getElementById('tut-title').textContent  = s.title;
+  document.getElementById('tut-body').innerHTML     = s.body;
+  document.getElementById('tut-prev').disabled      = tutIdx === 0;
+  document.getElementById('tut-next').textContent   = tutIdx === TUT_SLIDES.length-1 ? 'DONE ✓' : 'NEXT ▶';
+
+  /* Dots */
+  const dots = document.getElementById('tut-dots');
+  dots.innerHTML = '';
+  TUT_SLIDES.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'tut-dot' + (i === tutIdx ? ' active' : '');
+    d.addEventListener('click', () => { tutIdx = i; tutRender(); });
+    dots.appendChild(d);
+  });
+}
+
+function tutOpen() {
+  tutIdx = 0; tutRender();
+  document.getElementById('tut-overlay').classList.add('open');
+  setLight('lt-tut', true);
+}
+function tutClose() {
+  document.getElementById('tut-overlay').classList.remove('open');
+  setLight('lt-tut', false);
+}
+
+document.getElementById('tut-close').addEventListener('click', tutClose);
+document.getElementById('tut-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('tut-overlay')) tutClose();
+});
+document.getElementById('tut-prev').addEventListener('click', () => {
+  if (tutIdx > 0) { tutIdx--; tutRender(); }
+});
+document.getElementById('tut-next').addEventListener('click', () => {
+  if (tutIdx < TUT_SLIDES.length-1) { tutIdx++; tutRender(); }
+  else tutClose();
+});
+
+/* ────────────────────────────────────────────────────────────────────
+   CONFIG
+──────────────────────────────────────────────────────────────────── */
+const API  = location.origin + '/api';
+const WSU  = 'ws://' + location.host + '/ws';
+const LMAX = 300;
+
+const LANG_CLR = {
+  python:'#b347ea', js:'#f7df1e', ts:'#007acc',
+  jsx:'#61dafb', tsx:'#61dafb', other:'#D77757',
+};
+
+let cy, sim;
+let activeProj = null;
+let nbrMode    = true;
+let flowAnim   = true;
+let szByDeg    = true;
+
+/* ────────────────────────────────────────────────────────────────────
+   CYTOSCAPE INIT
+──────────────────────────────────────────────────────────────────── */
+const CY_STYLE = [
+  { selector:'node', style:{
+    'background-color':'#110d0e',
+    'border-color': e => LANG_CLR[e.data('lang')]||'#D77757',
+    'border-width':2,
+    'label':'data(label)',
+    'color':'#c08070', 'font-family':'"JetBrains Mono",Consolas,monospace',
+    'font-size':14, 'font-weight':700,
+    'text-valign':'bottom','text-halign':'center','text-margin-y':7,
+    'width':30,'height':30,'shape':'round-rectangle','corner-radius':3,
+  }},
+  { selector:'node:selected', style:{
+    'border-color':'#D77757','border-width':3,
+    'background-color':'#1e100c','color':'#D77757',
+  }},
+  { selector:'node.faded',   style:{ opacity:.06 }},
+  { selector:'node.hl',      style:{
+    'border-color':'#D77757','border-width':3,
+    'background-color':'#1e100c','color':'#D77757',
+  }},
+  { selector:'node.c-edit', style:{
+    'background-color':'#201000','border-color':'#ffbf28',
+    'border-width':4,'color':'#ffbf28',
+  }},
+  { selector:'node.c-new', style:{
+    'background-color':'#001322','border-color':'#4fc3f7',
+    'border-width':3,'color':'#4fc3f7',
+  }},
+  { selector:'node.drift-lo', style:{
+    'border-width':3, 'border-color':'#cc8800', 'background-color':'#1a0c00',
+  }},
+  { selector:'node.drift-md', style:{
+    'border-width':4, 'border-color':'#ff9900', 'background-color':'#261200',
+  }},
+  { selector:'node.drift-hi', style:{
+    'border-width':5, 'border-color':'#ff6600', 'background-color':'#301800',
+  }},
+  { selector:'edge', style:{
+    'width':1.5,'line-color':'#4a3030',
+    'target-arrow-color':'#4a3030','target-arrow-shape':'triangle',
+    'arrow-scale':.75,'curve-style':'bezier','opacity':.72,
+  }},
+  { selector:'edge.flow-on', style:{
+    'line-style':'dashed','line-dash-pattern':[8,4],'line-dash-offset':0,
+    'line-color':'#D77757','target-arrow-color':'#D77757',
+    'opacity':1,'width':2,'arrow-scale':1,
+    'z-index':999,
+  }},
+  { selector:'edge.e-lbl', style:{
+    'label':'data(label)','font-size':10,'font-weight':700,
+    'color':'#D77757','font-family':'"JetBrains Mono",monospace',
+    'text-rotation':'autorotate',
+    'text-background-color':'#131313','text-background-opacity':0.85,
+    'text-background-padding':'2px',
+    'z-index':1000,
+  }},
+  { selector:'edge.sem', style:{
+    'line-style':'dashed','line-dash-pattern':[3,7],
+    'line-color':'#4a2a22','target-arrow-color':'#4a2a22','opacity':.33,
+  }},
+  { selector:'edge.faded', style:{ opacity:.04 }},
+];
+
+/* ── Tooltip timer helpers ─────────────────────────────────── */
+let _tipTimer = null;
+function _hideTip() { document.getElementById('tip').style.display = 'none'; }
+
+(function wireTipHover() {
+  const tip = document.getElementById('tip');
+  tip.addEventListener('mouseenter', () => clearTimeout(_tipTimer));
+  tip.addEventListener('mouseleave', () => { _tipTimer = setTimeout(_hideTip, 200); });
+})();
+
+function initCy() {
+  cytoscape.use(cytoscapeDagre);
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    style: CY_STYLE, elements: [],
+    layout:{ name:'preset' },
+    wheelSensitivity:.22, minZoom:.04, maxZoom:6,
+    boxSelectionEnabled:true,
+  });
+  sim = new Sim(cy);
+
+  cy.on('mouseover','node', e => { clearTimeout(_tipTimer); onHover(e); });
+  cy.on('mouseout', 'node', () => { _tipTimer = setTimeout(_hideTip, 420); });
+  cy.on('drag',     'node', () => { clearTimeout(_tipTimer); _hideTip(); });
+  cy.on('tap',      'node', onTap);
+  cy.on('tap',              onBgTap);
+
+  cy.on('free','node', e => {
+    if (!sim.on) return;
+    const v = sim.vel[e.target.id()] || {x:0,y:0};
+    e.target.connectedEdges().connectedNodes().not(e.target).forEach(n => {
+      sim.kick(n.id(), v.x*.35, v.y*.35);
+    });
+  });
+
+  /* Immediate hull update on viewport change (zoom/pan/resize) */
+  cy.on('viewport', () => { updateHulls(); });
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   LOAD GRAPH
+──────────────────────────────────────────────────────────────────── */
+function loadGraph(data) {
+  if (!data) return;
+  sim.stop(); setLiveUI(false);
+
+  cy.startBatch();
+  cy.elements().remove();
+  cy.add([
+    ...data.nodes.map(n => ({ group:'nodes', data:n.data })),
+    ...data.edges.map(e => ({ group:'edges', data:e.data })),
+  ]);
+  cy.endBatch();
+
+  applyFilters();
+  if (szByDeg) updateSizes();
+  clusterLayout();
+  cy.fit(undefined, 40);
+  updateGrpFilter(data.nodes);
+  setStats(data);
+
+  const depths = computeDepths(cy);
+  sim._depths = depths;
+  applyDepthColors(depths);
+
+  if (flowAnim) cy.edges('[type != "semantic"]').addClass('flow-on');
+
+  if (_hullInterval) clearInterval(_hullInterval);
+  resizeCanvases();
+  _hullInterval = setInterval(updateHulls, 80);
+
+  setTimeout(() => {
+    sim.start(); setLiveUI(true);
+    logEntry('physics','Simulation started','');
+  }, 320);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   SIZES / FILTERS / STATS
+──────────────────────────────────────────────────────────────────── */
+function updateSizes() {
+  cy.nodes().forEach(n => {
+    const d = n.degree(false);
+    n.style({ width: Math.max(24, Math.min(80, d*11+24)), height: Math.max(24, Math.min(80, d*11+24)) });
+  });
+}
+
+function applyFilters() {
+  const lang = document.getElementById('lang-f').value;
+  const grp  = document.getElementById('grp-f').value;
+  const q    = document.getElementById('srch').value.trim().toLowerCase();
+  cy.nodes().forEach(n => {
+    const ok = (lang==='all'||n.data('lang')===lang)
+            && (grp ==='all'||n.data('group')===grp)
+            && (!q || n.data('label').toLowerCase().includes(q)
+                   || n.data('id').toLowerCase().includes(q));
+    n.toggleClass('faded', !ok);
+    n.toggleClass('hl', ok && !!q);
+    if (ok && !q) n.removeClass('hl');
+  });
+  cy.edges().forEach(e => {
+    e.toggleClass('faded', e.source().hasClass('faded')||e.target().hasClass('faded'));
+  });
+}
+
+function updateGrpFilter(nodes) {
+  const sel = document.getElementById('grp-f');
+  const cur = sel.value;
+  const gs  = [...new Set(nodes.map(n=>n.data.group).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="all">All directories</option>';
+  gs.forEach(g => { const o=document.createElement('option'); o.value=o.textContent=g; sel.appendChild(o); });
+  if (gs.includes(cur)) sel.value = cur;
+}
+
+function setStats(data) {
+  document.getElementById('sf').textContent = (data.nodes||[]).length;
+  document.getElementById('se').textContent = (data.edges||[]).length;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   GLITCH FLASH
+──────────────────────────────────────────────────────────────────── */
+function glitch(nodeId, cls) {
+  const n = cy.getElementById(nodeId);
+  if (!n||n.empty()) return;
+  const isEdit = cls !== 'c-new';
+  const fc  = isEdit ? '#ffbf28' : '#4fc3f7';
+  const fbg = isEdit ? '#281400' : '#001422';
+  const orig = LANG_CLR[n.data('lang')]||'#D77757';
+  n.addClass(cls||'c-edit');
+  let c = 0;
+  const tick = () => {
+    if (c++ >= 6) {
+      n.animate({ style:{'background-color':'#110d0e','border-color':orig,'border-width':2,'color':'#c08070'} }, { duration:500 });
+      setTimeout(()=>n.removeClass(cls||'c-edit'), 550);
+      return;
+    }
+    const ev = c%2===0;
+    n.animate({ style:{
+      'background-color': ev?fbg:'#110d0e', 'border-color': ev?fc:orig,
+      'border-width': ev?4:2,               'color': ev?fc:'#c08070',
+    }}, { duration:85, complete:tick });
+  };
+  tick();
+  if (sim.on) sim.kick(nodeId, (Math.random()-.5)*14, (Math.random()-.5)*14);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   EDGE FLOW ANIMATION
+──────────────────────────────────────────────────────────────────── */
+let _fo = 0;
+setInterval(() => {
+  if (!flowAnim || !cy) return;
+  _fo = (_fo - 1.8 + 24) % 24;
+  cy.edges('.flow-on').style('line-dash-offset', _fo);
+}, 38);
+
+/* ────────────────────────────────────────────────────────────────────
+   NEIGHBOUR MODE / TOOLTIP
+──────────────────────────────────────────────────────────────────── */
+function onTap(e) {
+  if (!nbrMode) return;
+  cy.elements().addClass('faded');
+  e.target.closedNeighborhood().removeClass('faded');
+}
+function onBgTap(e) {
+  if (e.target!==cy) return;
+  cy.elements().removeClass('faded'); applyFilters();
+}
+
+function onHover(e) {
+  const n = e.target, d = n.data();
+  const tip = document.getElementById('tip');
+  document.getElementById('t-name').textContent = d.label;
+  document.getElementById('t-path').textContent = d.path||d.id;
+  const rows = [
+    d.lang    ? ['LANG',  d.lang.toUpperCase()]                                    : null,
+    d.lines   ? ['LINES', d.lines]                                                  : null,
+    ['DEGREE', n.degree(false)],
+    d.functions&&d.functions.length
+      ? ['DEFS', d.functions.slice(0,7).join(' · ')+(d.functions.length>7?' …':'')] : null,
+    d.changedBy  ? ['BY',    d.changedBy.toUpperCase()]                              : null,
+    d.driftScore ? ['DRIFT', `${(d.driftScore*100).toFixed(1)}%`]                   : null,
+  ].filter(Boolean);
+  document.getElementById('t-rows').innerHTML = rows
+    .map(([k,v])=>`<div class="t-row">${k}&nbsp;&nbsp;<strong>${esc(String(v))}</strong></div>`)
+    .join('');
+  const p = e.renderedPosition;
+  tip.style.left = (p.x+14)+'px'; tip.style.top = (p.y+14)+'px';
+  tip.style.display = 'block';
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   LOG
+──────────────────────────────────────────────────────────────────── */
+function logEntry(ev, msg, by) {
+  const w   = document.getElementById('log');
+  const ts  = new Date().toTimeString().slice(0,8);
+  const row = document.createElement('div');
+  row.className = 'le';
+  row.innerHTML = `<span class="le-ts">[${ts}]</span>`
+    + `<span class="le-ev ev-${ev}">${ev.toUpperCase()}</span>`
+    + `<span class="le-msg">${esc(msg)}</span>`
+    + `<span class="le-by">${by?esc(by):''}</span>`;
+  document.getElementById('log-hdr').after(row);
+  while (w.children.length > LMAX+1) w.removeChild(w.lastChild);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   WEBSOCKET
+──────────────────────────────────────────────────────────────────── */
+let ws, wsDelay = 1200;
+
+function connectWS() {
+  ws = new WebSocket(WSU);
+  ws.onopen    = () => { setConn(true);  wsDelay=1200; logEntry('info','Connected','ws'); };
+  ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch {} };
+  ws.onclose   = () => { setConn(false); setTimeout(connectWS, wsDelay); wsDelay=Math.min(wsDelay*1.6,20000); };
+  ws.onerror   = () => ws.close();
+}
+
+function setConn(ok) {
+  document.getElementById('cdot').classList.toggle('live', ok);
+  document.getElementById('conn-pill').classList.toggle('live', ok);
+  document.getElementById('ctxt').textContent = ok ? 'LIVE' : 'OFFLINE';
+}
+
+function handleMsg(msg) {
+  if (activeProj && msg.project && msg.project !== activeProj) return;
+  switch (msg.type) {
+    case 'graph':
+      loadGraph(msg.data);
+      logEntry('graph', `${(msg.data.nodes||[]).length} files`, 'server');
+      if (msg.project) regProj(msg.project);
+      break;
+    case 'change':
+      glitch(msg.nodeId, 'c-edit');
+      logEntry('change', msg.nodeId, msg.by||'');
+      break;
+    case 'node-add':
+      if (msg.node) {
+        cy.add({group:'nodes',data:msg.node.data});
+        if (szByDeg) updateSizes();
+        glitch(msg.node.data.id, 'c-new');
+        logEntry('add', msg.node.data.id, 'watcher');
+      }
+      break;
+    case 'node-remove': {
+      const n = cy.getElementById(msg.nodeId);
+      if (!n.empty()) { n.animate({style:{opacity:0}},{duration:350,complete:()=>n.remove()}); logEntry('remove',msg.nodeId,'watcher'); }
+      break;
+    }
+    case 'semantic-edges':
+      (msg.edges||[]).forEach(e => {
+        if (cy.getElementById(e.data.id).empty())
+          cy.add({group:'edges',data:e.data}).addClass('sem').animate({style:{opacity:.33}},{duration:800});
+      });
+      logEntry('info', `${(msg.edges||[]).length} semantic edges`, 'ollama');
+      break;
+    case 'drift-update': {
+      const n = cy.getElementById(msg.nodeId);
+      if (!n.empty()) {
+        n.removeClass('drift-lo drift-md drift-hi');
+        n.data('driftScore', msg.drift);
+        if      (msg.drift >= 0.20) n.addClass('drift-hi');
+        else if (msg.drift >= 0.10) n.addClass('drift-md');
+        else if (msg.drift >= 0.04) n.addClass('drift-lo');
+      }
+      break;
+    }
+    case 'baseline-ready':
+      logEntry('info', `Baseline: ${msg.count} files embedded`, 'ollama');
+      break;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   PROJECT SWITCHER
+──────────────────────────────────────────────────────────────────── */
+function regProj(path) {
+  const sel = document.getElementById('proj-sel');
+  const key = path.replace(/"/g,'&quot;');
+  if (!sel.querySelector(`option[value="${key}"]`)) {
+    const o = document.createElement('option');
+    o.value = path; o.textContent = path.split(/[/\\]/).pop()||path;
+    sel.appendChild(o);
+  }
+  if (!activeProj) { activeProj = path; sel.value = path; }
+}
+
+async function switchProj(path) {
+  activeProj = path;
+  loadGraph(await (await fetch(`${API}/graph?project=${encodeURIComponent(path)}`)).json());
+  logEntry('info', '→ '+(path.split(/[/\\]/).pop()), 'switch');
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   UI HELPERS
+──────────────────────────────────────────────────────────────────── */
+function setLight(id, on) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = on ? '●' : '○';
+  el.classList.toggle('on', on);
+  el.classList.toggle('off', !on);
+}
+
+function setLiveUI(on) {
+  const btn = document.getElementById('btn-live');
+  btn.classList.toggle('on', on);
+  setLight('lt-live', on);
+  document.getElementById('badge').classList.toggle('on', on);
+}
+
+function syncTogLight(chkId) {
+  const chk = document.getElementById(chkId);
+  const update = () => {
+    const lt = chk.closest('.tog').querySelector('.lt');
+    if (lt) { lt.textContent = chk.checked?'●':'○'; lt.classList.toggle('on',chk.checked); lt.classList.toggle('off',!chk.checked); }
+  };
+  chk.addEventListener('change', update);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CONTROLS WIRING
+──────────────────────────────────────────────────────────────────── */
+function wireForce(btnId, ltId, forceKey) {
+  document.getElementById(btnId).addEventListener('click', () => {
+    sim.forces[forceKey] = !sim.forces[forceKey];
+    const on = sim.forces[forceKey];
+    document.getElementById(btnId).classList.toggle('on', on);
+    setLight(ltId, on);
+    logEntry('physics', `${forceKey.toUpperCase()} ${on?'ON':'OFF'}`, '');
+  });
+}
+wireForce('f-bonds',  'lt-bonds',  'bonds');
+wireForce('f-flow',   'lt-flow',   'flow');
+wireForce('f-lang',   'lt-lang',   'lang');
+wireForce('f-hubs',   'lt-hubs',   'hubs');
+wireForce('f-grp',    'lt-grp',    'grp');
+wireForce('f-grav',   'lt-grav',   'grav');
+wireForce('f-align',  'lt-align',  'align');
+wireForce('f-ctr',    'lt-ctr',    'ctr');
+wireForce('f-grprep', 'lt-grprep', 'grpRep');
+
+/* Live / Cluster / Bang */
+document.getElementById('btn-live').addEventListener('click', () => {
+  const on = sim.toggle(); setLiveUI(on);
+  logEntry('physics', on?'Simulation ON':'Simulation OFF','');
+});
+document.getElementById('btn-cluster').addEventListener('click', () => {
+  clusterLayout();
+  if (!sim.on) { sim.start(); setLiveUI(true); }
+  logEntry('physics','Cluster layout reset','');
+});
+document.getElementById('btn-bang').addEventListener('click', () => {
+  sim.bigBang(); setLiveUI(true);
+  logEntry('physics','◉ Big Bang','');
+});
+
+/* Sliders */
+document.getElementById('sl-spr').addEventListener('input', e => {
+  sim.springLen = +e.target.value; document.getElementById('sv-spr').textContent = e.target.value;
+});
+document.getElementById('sl-flw').addEventListener('input', e => {
+  sim.flowStr = +e.target.value; document.getElementById('sv-flw').textContent = e.target.value;
+});
+document.getElementById('sl-rep').addEventListener('input', e => {
+  sim.repulsion = +e.target.value;
+  const k = +e.target.value/1000;
+  document.getElementById('sv-rep').textContent = k%1===0?k+'k':k.toFixed(1)+'k';
+});
+document.getElementById('sl-dmp').addEventListener('input', e => {
+  sim.damping = +e.target.value/100;
+  document.getElementById('sv-dmp').textContent = '.'+e.target.value;
+});
+document.getElementById('sl-grprep').addEventListener('input', e => {
+  sim.grpRepStr = +e.target.value;
+  const k = +e.target.value/1000;
+  document.getElementById('sv-grprep').textContent = k%1===0?k+'k':k.toFixed(1)+'k';
+});
+
+/* Static layout */
+document.getElementById('btn-lay').addEventListener('click', () => {
+  sim.stop(); setLiveUI(false);
+  const nm = document.getElementById('lay-sel').value;
+  const dr = document.getElementById('lay-dir').value;
+  const cfgs = {
+    dagre:        {name:'dagre', rankDir:dr, nodeSep:30, rankSep:60, animate:true, animationDuration:500},
+    breadthfirst: {name:'breadthfirst', directed:true, animate:true, animationDuration:500},
+    circle:       {name:'circle', animate:true, animationDuration:500},
+    concentric:   {name:'concentric', concentric:n=>n.degree(), levelWidth:()=>1, animate:true, animationDuration:500},
+  };
+  cy.layout(cfgs[nm]||cfgs.dagre).run();
+  logEntry('info', `Layout: ${nm}`, '');
+});
+
+/* Filters */
+document.getElementById('lang-f').addEventListener('change', applyFilters);
+document.getElementById('grp-f').addEventListener('change', applyFilters);
+document.getElementById('srch').addEventListener('input', applyFilters);
+
+/* Display toggles */
+syncTogLight('ck-flow'); syncTogLight('ck-elbl'); syncTogLight('ck-sem');
+syncTogLight('ck-nbr');  syncTogLight('ck-sz');
+syncTogLight('ck-hulls'); syncTogLight('ck-sub-hulls'); syncTogLight('ck-depth');
+
+document.getElementById('ck-flow').addEventListener('change', e => {
+  flowAnim = e.target.checked;
+  cy.edges().removeClass('flow-on');
+  if (flowAnim) cy.edges('[type != "semantic"]').addClass('flow-on');
+});
+document.getElementById('ck-elbl').addEventListener('change', e => cy.edges().toggleClass('e-lbl', e.target.checked));
+document.getElementById('ck-sem').addEventListener('change',  e => cy.edges('.sem').style('display', e.target.checked?'element':'none'));
+document.getElementById('ck-nbr').addEventListener('change',  e => { nbrMode=e.target.checked; if(!nbrMode){cy.elements().removeClass('faded');applyFilters();} });
+document.getElementById('ck-sz').addEventListener('change',   e => { szByDeg=e.target.checked; if(szByDeg)updateSizes(); else cy.nodes().style({width:30,height:30}); });
+document.getElementById('ck-hulls').addEventListener('change', e => {
+  showHulls = e.target.checked;
+  if (!showHulls) { const c=document.getElementById('hull-canvas'); if(c) c.getContext('2d').clearRect(0,0,c.width,c.height); }
+});
+document.getElementById('ck-sub-hulls').addEventListener('change', e => {
+  showSubHulls = e.target.checked;
+});
+document.getElementById('ck-depth').addEventListener('change', e => {
+  showDepth = e.target.checked;
+  if (showDepth) applyDepthColors(computeDepths(cy));
+  else cy.nodes().style({'background-color':'#110d0e'});
+});
+
+/* Actions */
+document.getElementById('btn-ref').addEventListener('click', async () => {
+  setLight('lt-ref', true);
+  logEntry('info','Refreshing…','');
+  await fetch(`${API}/refresh`, { method:'POST', headers:{'Content-Type':'application/json'}, body: activeProj?JSON.stringify({project:activeProj}):'{}' });
+  setTimeout(()=>setLight('lt-ref',false), 1200);
+});
+document.getElementById('btn-sem').addEventListener('click', async () => {
+  setLight('lt-sem', true);
+  logEntry('info','Computing embeddings…','ollama');
+  const url = `${API}/embeddings`+(activeProj?`?project=${encodeURIComponent(activeProj)}`:'');
+  const d = await (await fetch(url)).json();
+  if (d.reason) logEntry('info', d.reason, '');
+  setTimeout(()=>setLight('lt-sem',false), 1500);
+});
+
+/* Canvas controls */
+document.getElementById('btn-fit').addEventListener('click',  ()=>cy.fit(undefined,40));
+document.getElementById('btn-1x').addEventListener('click',   ()=>cy.reset());
+document.getElementById('btn-zi').addEventListener('click',   ()=>cy.zoom(cy.zoom()*1.35));
+document.getElementById('btn-zo').addEventListener('click',   ()=>cy.zoom(cy.zoom()/1.35));
+
+/* Tutorial */
+document.getElementById('btn-tut').addEventListener('click', tutOpen);
+
+/* Font size controls */
+let fontScale = 1.0;
+document.getElementById('btn-fontup').addEventListener('click', () => {
+  fontScale = Math.min(fontScale + 0.08, 1.6);
+  document.documentElement.style.fontSize = (fontScale * 100) + '%';
+  cy.nodes().style({'font-size': Math.round(14 * fontScale)});
+});
+document.getElementById('btn-fontdn').addEventListener('click', () => {
+  fontScale = Math.max(fontScale - 0.08, 0.7);
+  document.documentElement.style.fontSize = (fontScale * 100) + '%';
+  cy.nodes().style({'font-size': Math.round(14 * fontScale)});
+});
+
+/* Project switcher */
+document.getElementById('proj-sel').addEventListener('change', e => { if(e.target.value) switchProj(e.target.value); });
+
+/* ── Activity log drag resize + toggle ───────────────────── */
+let _logH          = 144;
+let _logCollapsed  = false;
+let _logDragging   = false, _logDragY0 = 0, _logDragH0 = 0;
+
+const _logWrap   = document.getElementById('log-wrap');
+const _logHandle = document.getElementById('log-handle');
+const _logEl     = document.getElementById('log');
+const _logStatus = document.getElementById('log-status');
+const _logTogBtn = document.getElementById('btn-log-toggle');
+
+function _setLogH(h) {
+  document.documentElement.style.setProperty('--lh', h + 'px');
+}
+
+_logHandle.addEventListener('mousedown', e => {
+  if (e.target === _logTogBtn) return; /* let the button handle its own click */
+  _logDragging = true;
+  _logDragY0 = e.clientY;
+  _logDragH0 = _logCollapsed ? 26 : _logH;
+  e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+  if (!_logDragging) return;
+  const diff = _logDragY0 - e.clientY;
+  const newH = Math.max(26, Math.min(500, _logDragH0 + diff));
+  if (newH > 30) {
+    _logH = newH;
+    if (_logCollapsed) {
+      _logCollapsed = false;
+      _logEl.style.display = '';
+      _logStatus.style.display = 'none';
+      _logTogBtn.textContent = '▲';
+    }
+  }
+  _setLogH(newH);
+});
+window.addEventListener('mouseup', () => { _logDragging = false; });
+
+_logTogBtn.addEventListener('click', () => {
+  _logCollapsed = !_logCollapsed;
+  if (_logCollapsed) {
+    _setLogH(26);
+    _logEl.style.display = 'none';
+    _logStatus.style.display = 'flex';
+    _logTogBtn.textContent = '▼';
+  } else {
+    _setLogH(_logH);
+    _logEl.style.display = '';
+    _logStatus.style.display = 'none';
+    _logTogBtn.textContent = '▲';
+  }
+});
+
+/* ────────────────────────────────────────────────────────────────────
+   BOOT
+──────────────────────────────────────────────────────────────────── */
+async function fetchProjects() {
+  try {
+    const d = await (await fetch(`${API}/projects`)).json();
+    (d.projects||[]).forEach(p=>regProj(p.path));
+  } catch {}
+}
+
+initCy();
+resizeCanvases();
+fetchProjects();
+connectWS();
+
+/* Welcome tip */
+setTimeout(() => logEntry('crab', '🦀 Welcome! Click ? TUTORIAL for a guided tour', ''), 1800);
+</script>
+</body>
+</html>

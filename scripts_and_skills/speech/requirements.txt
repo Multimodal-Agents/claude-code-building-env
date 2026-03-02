@@ -1,0 +1,21 @@
+# speech-to-speech pipeline dependencies
+# Install: pip install -r scripts_and_skills/speech/requirements.txt
+
+# STT
+faster-whisper>=1.0
+
+# Audio I/O + VAD
+sounddevice>=0.4
+webrtcvad>=2.0.10
+numpy>=1.24
+scipy>=1.10
+
+# TTS
+edge-tts>=6.1
+
+# LLM backends
+anthropic>=0.25
+httpx>=0.25          # Ollama streaming
+
+# Optional: MP3→WAV conversion fallback (if ffmpeg not on PATH)
+# pydub>=0.25
