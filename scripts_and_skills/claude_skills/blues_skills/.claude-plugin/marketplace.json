@@ -1,21 +1,27 @@
 {
   "name": "blues-skills",
   "owner": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "Leo Borcherding",
+    "email": "borchborchmail@gmail.com"
   },
   "metadata": {
-    "description": "Blues custom skill collection",
-    "version": "1.0.0"
+    "description": "Blues custom skill collection for Claude Code",
+    "version": "1.0.0",
+    "repository": "https://github.com/Multimodal-Agents/claude-code-building-env"
   },
   "plugins": [
     {
       "name": "blues-core",
-      "description": "Core Blues skills collection",
+      "description": "Core Blues skills: terminal execution, code parsing, graph visualization, prompt management, and speech-to-speech",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/blues-terminal-execution"
+        "./skills/blues-terminal-execution",
+        "./skills/code-parser",
+        "./skills/prompt-manager",
+        "./skills/cytoscape-playground",
+        "./skills/speech-to-speech",
+        "./skills/job-list"
       ]
     }
   ]

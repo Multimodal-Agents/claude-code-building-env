@@ -387,6 +387,23 @@ async def hook(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
+@app.post("/api/register")
+async def register_project_endpoint(request: Request) -> JSONResponse:
+    body = await request.json()
+    path = body.get("path", "")
+    if not path:
+        return JSONResponse({"ok": False, "reason": "no path"})
+    resolved = str(Path(path).resolve())
+    if not Path(resolved).is_dir():
+        return JSONResponse({"ok": False, "reason": "not a directory"})
+    await _register_project(resolved)
+    await app.state.manager.broadcast({
+        "type": "project-registered",
+        "project": resolved,
+    })
+    return JSONResponse({"ok": True, "path": resolved})
+
+
 @app.post("/api/refresh")
 async def refresh(request: Request) -> JSONResponse:
     body = await request.json() if request.headers.get("content-length", "0") != "0" else {}

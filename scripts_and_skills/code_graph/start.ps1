@@ -19,7 +19,7 @@ param(
 )
 
 $Root    = Split-Path $PSScriptRoot -Parent | Split-Path -Parent  # repo root
-$EnvPy   = Join-Path $Root "venv\Scripts\python.exe"
+$EnvPy   = if (Test-Path (Join-Path $Root ".venv\Scripts\python.exe")) { Join-Path $Root ".venv\Scripts\python.exe" } else { Join-Path $Root "venv\Scripts\python.exe" }
 $Python  = if (Test-Path $EnvPy) { $EnvPy } else { "python" }
 $Req     = Join-Path $PSScriptRoot "requirements.txt"
 $Module  = "scripts_and_skills.code_graph.server"

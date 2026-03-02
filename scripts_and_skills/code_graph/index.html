@@ -457,7 +457,7 @@ html, body {
 .tut-nav .btn { min-width: 90px; justify-content: center; }
 
 /* ──────────────────────────────────────────────────────────────────
-   CRAB PARTY OVERLAY
+   CRAB RAVE OVERLAY
 ────────────────────────────────────────────────────────────────── */
 #crab-party-cv {
   position: fixed; top: 0; left: 0;
@@ -514,7 +514,7 @@ html, body {
       <div class="hchip">EDGES <span class="v" id="se">0</span></div>
       <div class="hchip fps">SIM <span class="v" id="sfps">—</span></div>
     </div>
-    <select id="proj-sel"><option value="">── no project ──</option></select>
+    <select id="proj-sel"><option value="">── no project ──</option><option value="__open__">── open folder… ──</option></select>
   </header>
 
   <!-- ─── BODY ROW ──────────────────────────────────────────── -->
@@ -1803,7 +1803,7 @@ function startCrabParty() {
   crabPartyEndTmr = setTimeout(_endCrabPartyCleanup, PARTY_DURATION);
 
   crabPartyRafId = requestAnimationFrame(_crabPartyTick);
-  logEntry('crab', '🦀🎉 CRAB PARTY — THE CRABS HAVE TAKEN OVER (until the music ends)', '');
+  logEntry('crab', '🦀🎉 CRAB RAVE — THE CRABS HAVE TAKEN OVER (until the music ends)', '');
 }
 
 /* ─── Flee trigger (separated so onStateChange + timer both call it) */
@@ -1826,7 +1826,7 @@ function _endCrabPartyCleanup() {
   crabPartyActive = false;
   partyCv.style.display    = 'none';
   partyBanner.style.display = 'none';
-  partyBanner.textContent  = '🦀 CRAB PARTY 🦀';
+  partyBanner.textContent  = '🦀 CRAB RAVE 🦀';
   clearInterval(crabPartyBeatTmr); crabPartyBeatTmr = null;
   clearTimeout(crabPartyFleeTmr);  crabPartyFleeTmr = null;
   clearTimeout(crabPartyEndTmr);   crabPartyEndTmr  = null;
@@ -2308,6 +2308,7 @@ function setConn(ok) {
 }
 
 function handleMsg(msg) {
+  if (msg.type === 'project-registered') { regProj(msg.project); return; }
   if (activeProj && msg.project && msg.project !== activeProj) return;
   switch (msg.type) {
     case 'graph':
@@ -2548,7 +2549,22 @@ document.getElementById('btn-fontdn').addEventListener('click', () => {
 });
 
 /* Project switcher */
-document.getElementById('proj-sel').addEventListener('change', e => { if(e.target.value) switchProj(e.target.value); });
+document.getElementById('proj-sel').addEventListener('change', async e => {
+  const v = e.target.value;
+  if (!v) return;
+  if (v === '__open__') {
+    e.target.value = activeProj || '';
+    const p = prompt('Enter project folder path:');
+    if (!p || !p.trim()) return;
+    const res = await fetch(`${API}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: p.trim()}) });
+    const j = await res.json();
+    if (!j.ok) { logEntry('warn', 'register failed: '+(j.reason||'?'), 'folder'); return; }
+    regProj(j.path);
+    switchProj(j.path);
+  } else {
+    switchProj(v);
+  }
+});
 
 /* ── Activity log drag resize + toggle ───────────────────── */
 let _logH          = 144;
