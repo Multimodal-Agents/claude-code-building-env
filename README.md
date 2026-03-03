@@ -2,12 +2,60 @@
 
 > Personal AI development abstraction layer built on top of [Claude Code CLI](https://github.com/anthropics/claude-code).
 
-Run a local LLM (Ollama `gpt-oss:20b` - 14 GB) through Claude Code's full agentic tooling —
-with your own skills, plugins, and hooks that survive every upstream update.
+Extend Claude Code with your own skills, plugins, slash commands, and hooks —
+all outside the CLI package so they survive every upstream update.
+Works with **Anthropic Pro** (cloud) or a **local Ollama model** (offline).
 
 ---
 
-## Quick Start
+## Prerequisites
+
+| Requirement | How to check | Required? |
+|-------------|-------------|-----------|
+| **Claude Code CLI** | `claude --version` | **Yes** |
+| Python 3.10+ | `python --version` | Yes |
+| Git | `git --version` | Yes |
+| Ollama | `ollama list` | Only for local models |
+
+### Installing Claude Code (if you don't have it yet)
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+> Need Node.js? Get it from [nodejs.org](https://nodejs.org/).
+> Full install docs: [docs.anthropic.com/en/docs/claude-code](https://docs.anthropic.com/en/docs/claude-code/overview)
+
+---
+
+## Already have Claude Code installed?
+
+If you already have `claude` working, you can start using this repo's extensions immediately:
+
+```powershell
+git clone https://github.com/Multimodal-Agents/claude-code-building-env.git
+cd claude-code-building-env
+.\setup.ps1            # clones Anthropic reference repos (skills + claude-code examples)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install pandas pyarrow numpy requests ddgs huggingface_hub
+```
+
+Then just launch Claude from this directory:
+```powershell
+claude                 # uses Anthropic Pro — CLAUDE.md, skills, and slash commands load automatically
+```
+
+That's it. Claude Code reads `CLAUDE.md` and discovers the skills/commands in this repo on startup. No Ollama required.
+
+**Want the interactive launcher instead?** (lets you pick Anthropic Pro, Ollama, or Speech mode)
+```powershell
+.\scripts_and_skills\claude_scripts\run_claude.ps1
+```
+
+---
+
+## Full Setup (new users or local Ollama models)
 
 ### 1. Clone this repo
 ```powershell

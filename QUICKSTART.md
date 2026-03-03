@@ -6,12 +6,15 @@
 
 ## Prerequisites
 
-| Requirement | Check |
-|-------------|-------|
-| Python 3.10+ | `python --version` |
-| Ollama installed + running | `ollama list` |
-| `gpt-oss:20b` pulled in Ollama | `ollama list \| findstr gpt-oss` |
-| Git | `git --version` |
+| Requirement | Check | Required? |
+|-------------|-------|-----------|
+| **Claude Code CLI** | `claude --version` | **Yes** — `npm install -g @anthropic-ai/claude-code` |
+| Python 3.10+ | `python --version` | Yes |
+| Git | `git --version` | Yes |
+| Ollama installed + running | `ollama list` | Only for local models (Steps 2+) |
+| A model pulled in Ollama | `ollama list \| findstr gpt-oss` | Only for local models |
+
+> **Already have Claude Code?** You can skip everything Ollama-related and just run `claude` from this repo directory. The skills, slash commands, and `CLAUDE.md` context load automatically.
 
 ---
 

@@ -45,7 +45,7 @@ case "$choice" in
         export ANTHROPIC_AUTH_TOKEN="ollama"
         export ANTHROPIC_BASE_URL="http://${OLLAMA_HOST}:${OLLAMA_PORT}"
         echo "  >> Claude — Ollama tiny (qwen3:1.7b)"
-        claude --allowedTools "Bash,Read,Edit,Write,Glob,Grep" --model qwen3:1.7b
+        claude --allowedTools "Bash,Read,Edit,Write,Glob,Grep,LS" --model qwen3:1.7b
         ;;
     4)
         echo "  >> Speech — Anthropic Pro  (say 'goodbye claude' to exit)"

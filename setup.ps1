@@ -44,7 +44,9 @@ if ($claudeBin) {
     Write-Ok "claude found at: $($claudeBin.Source)"
 } else {
     Write-Warn "claude CLI not found in PATH."
-    Write-Host "     Install it from: https://code.claude.com/docs/en/setup" -ForegroundColor Yellow
+    Write-Host "     Install it:  npm install -g @anthropic-ai/claude-code" -ForegroundColor Yellow
+    Write-Host "     Then re-run this script, or just launch:  claude" -ForegroundColor Yellow
+    Write-Host "     Full docs:   https://docs.anthropic.com/en/docs/claude-code/overview" -ForegroundColor DarkGray
     Write-Host ""
 }
 
