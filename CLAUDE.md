@@ -105,6 +105,7 @@ This layer works with **any future version** of the Claude Code CLI.
 | **speech-to-speech** | `scripts_and_skills/claude_skills/blues_skills/skills/speech-to-speech/` | Real-time voice pipeline: Mic → VAD → Whisper → LLM stream → edge-tts → (SVC) → speaker |
 | **cytoscape-playground** | `scripts_and_skills/claude_skills/blues_skills/skills/cytoscape-playground/` | Extends playground plugin with Cytoscape.js graph/network visualization; CDN for HTML playgrounds, npm setup for projects |
 | **job-list** | `scripts_and_skills/claude_skills/blues_skills/skills/job-list/` | Sequential project build queue — processes `*_1.md` → `*_2.md` in order, gates each on ≥95% objective completion; supports `--unattended` mode |
+| **blender-robot** | `scripts_and_skills/claude_skills/blues_skills/skills/blender-robot/` | Generate parametric Blender Python scripts for robot design → 3D-print-ready STL; intake → bpy geometry → joint library → STL export |
 
 ---
 
@@ -123,6 +124,7 @@ This layer works with **any future version** of the Claude Code CLI.
 | `/speech` | `.claude/commands/speech.md` | Start real-time speech-to-speech voice mode; say "goodbye claude" to return to text chat |
 | `/code-graph` | `.claude/commands/code-graph.md` | Live terminal CRT code graph monitor — parse imports, watch edits, animate Claude changes |
 | `/job-list` | `.claude/commands/job-list.md` | Run a sequential queue of project build jobs from numbered markdown specs (`*_N.md`) |
+| `/blender-robot` | `.claude/commands/blender-robot.md` | Generate Blender bpy scripts for robot design — intake → parametric script → 3D-print-ready STL |
 
 ---
 

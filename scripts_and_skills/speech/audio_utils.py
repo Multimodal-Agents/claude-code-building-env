@@ -218,6 +218,7 @@ def record_with_vad(
                         print(" [Recording]", end="", flush=True)
                 else:
                     speech_onset_count = 0
+                    frames_collected.clear()  # discard false-start frames
             else:
                 frames_collected.append(frame)
                 if is_speech:

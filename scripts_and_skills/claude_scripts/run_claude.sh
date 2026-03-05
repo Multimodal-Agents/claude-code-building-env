@@ -24,8 +24,9 @@ echo "  2) Claude  — Ollama large  (gpt-oss:20b)"
 echo "  3) Claude  — Ollama tiny   (qwen3:1.7b)"
 echo "  4) Speech  — Anthropic Pro  [voice-to-voice]"
 echo "  5) Speech  — Ollama         [voice-to-voice]"
+echo "  6) NVIDIA  — Developer API  (sets NVIDIA_API_KEY + launches Claude)"
 echo ""
-read -rp "  Select mode [1-5]: " choice
+read -rp "  Select mode [1-6]: " choice
 echo ""
 
 case "$choice" in
@@ -57,8 +58,23 @@ case "$choice" in
         "$PYTHON" -m scripts_and_skills.speech.voice_pipeline \
             --ollama --voice "en-US-AriaNeural" --log-level "WARNING"
         ;;
+    6)
+        KEY_FILE="/mnt/c/Users/ADA/Desktop/test_file.txt"
+        if [ ! -f "$KEY_FILE" ]; then
+            echo "  ERROR: Key file not found at $KEY_FILE"
+            exit 1
+        fi
+        export NVIDIA_API_KEY
+        NVIDIA_API_KEY=$(tr -d '[:space:]' < "$KEY_FILE")
+        echo "  >> NVIDIA API key loaded from desktop file"
+        echo "  >> NVIDIA_API_KEY is set for this session"
+        echo "  >> Launching Claude (Anthropic Pro) — use NVIDIA API in your scripts"
+        unset ANTHROPIC_AUTH_TOKEN
+        unset ANTHROPIC_BASE_URL
+        claude
+        ;;
     *)
-        echo "  Invalid selection. Please enter 1-5."
+        echo "  Invalid selection. Please enter 1-6."
         exit 1
         ;;
 esac

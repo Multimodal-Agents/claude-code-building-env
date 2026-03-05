@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Graph — Starting…</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #111111;
+      --surface:  #1a1a1a;
+      --border:   #2a2a2a;
+      --orange:   #e8622a;
+      --orange2:  #ff7a3a;
+      --text:     #c8c8c8;
+      --dim:      #666;
+      --glow:     0 0 18px #e8622a88;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag;   /* allow dragging the window by the loading screen */
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    /* Crab emoji with a subtle bob */
+    .crab {
+      font-size: 56px;
+      animation: bob 1.4s ease-in-out infinite;
+      filter: drop-shadow(0 0 12px #e8622a66);
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0);   }
+      50%       { transform: translateY(-8px); }
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      text-shadow: var(--glow);
+      text-transform: uppercase;
+    }
+
+    /* Pulsing dots spinner */
+    .spinner {
+      display: flex;
+      gap: 8px;
+    }
+    .spinner span {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .spinner span:nth-child(2) { animation-delay: 0.2s; }
+    .spinner span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse {
+      0%, 80%, 100% { opacity: 0.15; transform: scale(0.8); }
+      40%            { opacity: 1;    transform: scale(1.2); }
+    }
+
+    .status {
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      animation: blink 2s step-start infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* Scan-line overlay for CRT vibe */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="crab">🦀</div>
+    <div class="logo">CODE GRAPH</div>
+    <div class="spinner">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="status">starting server…</div>
+  </div>
+</body>
+</html>

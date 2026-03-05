@@ -15,9 +15,10 @@ Write-Host "  2) Claude  - Ollama large  (gpt-oss:20b)" -ForegroundColor Yellow
 Write-Host "  3) Claude  - Ollama tiny   (forge:1.7b)" -ForegroundColor Yellow
 Write-Host "  4) Speech  - Anthropic Pro  [voice-to-voice]" -ForegroundColor Magenta
 Write-Host "  5) Speech  - Ollama         [voice-to-voice]" -ForegroundColor Magenta
+Write-Host "  6) NVIDIA  - Developer API  (sets NVIDIA_API_KEY + launches Claude)" -ForegroundColor Green
 Write-Host ""
 
-$choice = Read-Host "  Select mode [1-5]"
+$choice = Read-Host "  Select mode [1-6]"
 Write-Host ""
 
 switch ($choice) {
@@ -49,7 +50,21 @@ switch ($choice) {
         & $PythonExe -m scripts_and_skills.speech.voice_pipeline `
             --ollama --voice "en-US-AriaNeural" --log-level "WARNING"
     }
+    "6" {
+        $keyFile = "$env:USERPROFILE\Desktop\test_file.txt"
+        if (-not (Test-Path $keyFile)) {
+            Write-Host "  ERROR: Key file not found at $keyFile" -ForegroundColor Red
+        } else {
+            $env:NVIDIA_API_KEY = (Get-Content $keyFile -Raw).Trim()
+            Write-Host "  >> NVIDIA API key loaded from desktop file" -ForegroundColor Green
+            Write-Host "  >> NVIDIA_API_KEY is set for this session" -ForegroundColor Green
+            Write-Host "  >> Launching Claude (Anthropic Pro) - use NVIDIA API in your scripts" -ForegroundColor Cyan
+            Remove-Item Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item Env:ANTHROPIC_BASE_URL   -ErrorAction SilentlyContinue
+            claude
+        }
+    }
     default {
-        Write-Host "  Invalid selection. Please enter 1-5." -ForegroundColor Red
+        Write-Host "  Invalid selection. Please enter 1-6." -ForegroundColor Red
     }
 }

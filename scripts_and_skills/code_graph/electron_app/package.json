@@ -1,0 +1,43 @@
+{
+  "name": "code-graph",
+  "version": "1.0.0",
+  "description": "Live code dependency graph — desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.claudecode.codegraph",
+    "productName": "Code Graph",
+    "icon": "../claude_code_cli_icon-subject.ico",
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../",
+        "to": "code_graph",
+        "filter": ["server.py", "code_parser.py", "hook_notify.py", "index.html", "__init__.py", "requirements.txt"]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "../claude_code_cli_icon-subject.ico"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

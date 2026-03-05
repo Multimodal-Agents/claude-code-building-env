@@ -158,7 +158,7 @@ html, body {
 
 /* ─── Project selector ────────────────────────────────────────── */
 #proj-sel {
-  margin-left: auto; flex-shrink: 0;
+  flex-shrink: 0;
   background: var(--bg); color: var(--fg);
   border: 1px solid var(--bh);
   font-family: var(--font); font-size: 13px; font-weight: 700;
@@ -167,14 +167,98 @@ html, body {
 #proj-sel option { background: var(--bg); }
 
 /* ──────────────────────────────────────────────────────────────────
+   ELECTRON FRAMELESS TITLEBAR — window drag + custom controls
+────────────────────────────────────────────────────────────────── */
+
+/* Flush buttons to window edge in Electron */
+body.electron-mode #hdr { padding-right: 0; }
+
+/* ── Drag regions — JS-driven drag replaces CSS -webkit-app-region
+   so mousemove always fires for crab tracking.
+   In Electron, mousedown on #hdr triggers IPC-based window drag.
+   In a browser, these styles are simply cosmetic. ────────────── */
+.logo, #conn-pill, #hdr-chips, #titlebar-drag {
+  pointer-events: none;   /* pass JS events through to #hdr */
+  user-select: none;
+}
+
+/* No-drag: interactive elements that must receive clicks */
+#proj-sel, #crab-cv, #crab-wrap,
+.win-ctrl-group, .win-ctrl-group * { pointer-events: all; }
+
+/* Grab cursor only in Electron (would look odd in browser) */
+body.electron-mode #hdr { cursor: grab; }
+body.electron-mode #hdr:active { cursor: grabbing; }
+
+/* ── Titlebar drag spacer — fills empty space between chips & proj-sel */
+#titlebar-drag {
+  flex: 1;
+  min-width: 12px;
+  height: 100%;
+  display: none;           /* hidden in browser */
+}
+body.electron-mode #titlebar-drag { display: flex; }
+
+/* ─── Win-control button group ────────────────────────────────── */
+.win-ctrl-group {
+  display: none;           /* hidden in browser */
+  align-items: stretch;    /* stretch to full header height */
+  height: 100%;
+  flex-shrink: 0;
+  margin-left: 8px;
+  /* Sit above the crab (z-index 51) so it walks "behind" the buttons */
+  position: relative;
+  z-index: 55;
+  background: var(--s1);  /* solid bg covers any crab overlap */
+  border-left: 1px solid var(--bd);
+}
+
+body.electron-mode .win-ctrl-group {
+  display: flex;
+}
+
+.wc-btn {
+  width: 46px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  border-left: 1px solid transparent;
+  /* Lighter warm-orange — the "Claude body" colour */
+  color: var(--pale);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s, text-shadow .12s;
+  outline: none;
+  letter-spacing: 0;
+  user-select: none;
+}
+.wc-btn:hover {
+  background: var(--s3);
+  color: var(--fg);
+  border-left-color: var(--bd);
+  text-shadow: var(--gw-sm);
+}
+.wc-btn.wc-close:hover {
+  background: #3d0a0d;
+  color: var(--sec);
+  border-left-color: var(--scd);
+  text-shadow: var(--gw-r);
+}
+
+/* ──────────────────────────────────────────────────────────────────
    BODY ROW
 ────────────────────────────────────────────────────────────────── */
 #body {
   grid-row: 2;
+  position: relative;     /* anchor for #side-toggle */
   display: grid;
   grid-template-columns: var(--sw) 1fr;
   overflow: hidden;
+  transition: grid-template-columns .25s ease;
 }
+#body.side-hidden { grid-template-columns: 0px 1fr; }
 
 /* ──────────────────────────────────────────────────────────────────
    SIDEBAR
@@ -186,7 +270,33 @@ html, body {
   overflow-y: auto; overflow-x: hidden;
   scrollbar-width: none;
   padding: 10px 8px; gap: 11px;
+  transition: opacity .2s ease, padding .25s ease;
 }
+#body.side-hidden #side {
+  opacity: 0; pointer-events: none; padding: 0; overflow: hidden;
+}
+
+/* ─── Sidebar toggle button ───────────────────────────────────────── */
+#side-toggle {
+  position: absolute;
+  left: var(--sw); top: 50%; transform: translateY(-50%);
+  z-index: 20;
+  width: 22px; height: 48px;
+  background: var(--s2);
+  border: 1px solid var(--bd);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  color: var(--mute); font-size: 14px;
+  font-family: var(--font);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: left .25s ease, color .15s, background .15s;
+}
+#side-toggle:hover {
+  background: var(--s3); color: var(--fg);
+  text-shadow: var(--gw-sm);
+}
+#body.side-hidden #side-toggle { left: 0; }
 #side::-webkit-scrollbar { display: none; }
 
 /* Search */
@@ -475,13 +585,116 @@ html, body {
   z-index: -1;
 }
 #crab-party-banner {
-  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  position: fixed;
+  /* Sit just below the app header so it never covers any chrome */
+  top: calc(var(--hh) + 6px);
+  left: 50%; transform: translateX(-50%);
   z-index: 901; display: none;
   font: 900 22px "JetBrains Mono",monospace;
   color: #D77757; text-shadow: 0 0 18px #D77757, 0 0 40px rgba(215,119,87,0.6);
   letter-spacing: 3px; pointer-events: none;
   animation: crab-banner-pulse 0.69s ease-in-out infinite alternate;
 }
+
+/* ─── Crab rave audio confirmation popup ───────────────────────── */
+#crab-audio-popup {
+  position: fixed;
+  top: calc(var(--hh) + 8px);
+  right: 16px;
+  z-index: 1000;
+  display: none;
+  background: var(--s2, #1e1e2e);
+  border: 2px solid #D77757;
+  border-radius: 10px;
+  padding: 14px 20px;
+  box-shadow: 0 4px 24px rgba(215,119,87,0.35), 0 0 60px rgba(215,119,87,0.10);
+  font: 500 14px "JetBrains Mono", monospace;
+  color: #e0d0cc;
+  max-width: 320px;
+  animation: popup-slide-in 0.25s ease-out;
+}
+@keyframes popup-slide-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#crab-audio-popup .popup-title {
+  font-weight: 800; color: #D77757; margin-bottom: 10px;
+  font-size: 15px;
+}
+#crab-audio-popup .popup-msg {
+  margin-bottom: 14px; line-height: 1.5;
+}
+#crab-audio-popup .popup-btns {
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+#crab-audio-popup .popup-btn {
+  padding: 6px 18px; border: none; border-radius: 6px;
+  font: 700 13px "JetBrains Mono", monospace; cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+#crab-audio-popup .popup-btn:hover { transform: scale(1.05); }
+#crab-audio-popup .popup-btn:active { transform: scale(0.97); }
+#crab-audio-popup .popup-yes {
+  background: #D77757; color: #0e0e12;
+}
+#crab-audio-popup .popup-no {
+  background: #333; color: #ccc;
+}
+
+/* ─── Crab speech bubble (follows crab during rave) ────────────── */
+#crab-speech-bubble {
+  position: absolute;
+  display: none;
+  z-index: 52;
+  top: calc(50% + 13px);
+  transform: translateY(-50%);
+  background: #D77757;
+  color: #0e0e12;
+  font: 700 11px "JetBrains Mono", monospace;
+  padding: 5px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(215,119,87,0.5);
+  animation: bubble-bob 1.2s ease-in-out infinite alternate;
+}
+#crab-speech-bubble::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid #D77757;
+}
+@keyframes bubble-bob {
+  from { transform: translateY(-50%); }
+  to   { transform: translateY(calc(-50% + 3px)); }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   CUSTOM RESIZE HANDLES (replaces OS handles lost with frame:false)
+   8 thin transparent zones at the window edges — Electron only.
+────────────────────────────────────────────────────────────────── */
+.rz {
+  position: fixed;
+  z-index: 10000;
+  -webkit-app-region: no-drag;
+  display: none;          /* hidden in browser */
+}
+body.electron-mode .rz { display: block; }
+
+/* Cardinal edges */
+#rz-n  { top: 0;    left: 6px; right: 6px;  height: 5px; cursor: n-resize;  }
+#rz-s  { bottom: 0; left: 6px; right: 6px;  height: 5px; cursor: s-resize;  }
+#rz-e  { right: 0;  top: 6px; bottom: 6px;  width:  5px; cursor: e-resize;  }
+#rz-w  { left: 0;   top: 6px; bottom: 6px;  width:  5px; cursor: w-resize;  }
+/* Corners (bigger hit-target) */
+#rz-ne { top: 0;    right: 0;   width: 10px; height: 10px; cursor: ne-resize; }
+#rz-nw { top: 0;    left: 0;    width: 10px; height: 10px; cursor: nw-resize; }
+#rz-se { bottom: 0; right: 0;   width: 10px; height: 10px; cursor: se-resize; }
+#rz-sw { bottom: 0; left: 0;    width: 10px; height: 10px; cursor: sw-resize; }
 @keyframes crab-banner-pulse {
   from { opacity: 0.7; text-shadow: 0 0 10px #D77757; }
   to   { opacity: 1.0; text-shadow: 0 0 30px #D77757, 0 0 60px rgba(215,119,87,0.8); }
@@ -500,6 +713,7 @@ html, body {
     <div id="crab-wrap">
       <canvas id="crab-fx-cv"></canvas>
       <canvas id="crab-cv" title="🦀 Click me!"></canvas>
+      <div id="crab-speech-bubble">click me to end crab rave</div>
     </div>
 
     <div class="logo">
@@ -514,11 +728,24 @@ html, body {
       <div class="hchip">EDGES <span class="v" id="se">0</span></div>
       <div class="hchip fps">SIM <span class="v" id="sfps">—</span></div>
     </div>
+    <!-- ─── Elastic spacer — drag zone + pushes proj-sel right ── -->
+    <div id="titlebar-drag"></div>
+
     <select id="proj-sel"><option value="">── no project ──</option><option value="__open__">── open folder… ──</option></select>
+
+    <!-- ─── Frameless window controls (Electron only) ──────── -->
+    <div class="win-ctrl-group" id="win-ctrl-group">
+      <button class="wc-btn wc-min"   id="wc-min"   title="Minimize">─</button>
+      <button class="wc-btn wc-max"   id="wc-max"   title="Maximize">▢</button>
+      <button class="wc-btn wc-close" id="wc-close" title="Close">✕</button>
+    </div>
   </header>
 
   <!-- ─── BODY ROW ──────────────────────────────────────────── -->
   <div id="body">
+
+    <!-- Sidebar toggle tab -->
+    <button id="side-toggle" title="Toggle sidebar">◀</button>
 
     <!-- ─── SIDEBAR ─────────────────────────────────────── -->
     <aside id="side">
@@ -758,8 +985,39 @@ html, body {
 <div id="crab-party-banner">🦀 CRAB RAVE 🦀</div>
 <div id="yt-party-wrap"><div id="yt-party-player"></div></div>
 
+<!-- ─── CRAB RAVE AUDIO POPUP ───────────────────────────────── -->
+<div id="crab-audio-popup">
+  <div class="popup-title">🦀 Crab Rave Audio</div>
+  <div class="popup-msg">Are you sure you want to play the crab rave audio?</div>
+  <div class="popup-btns">
+    <button class="popup-btn popup-no" id="crab-audio-no">No</button>
+    <button class="popup-btn popup-yes" id="crab-audio-yes">Yes 🔊</button>
+  </div>
+</div>
+
+<!-- ─── CUSTOM RESIZE HANDLES (Electron frameless) ──────────── -->
+<div id="rz-n"  class="rz" data-dir="n"></div>
+<div id="rz-ne" class="rz" data-dir="ne"></div>
+<div id="rz-e"  class="rz" data-dir="e"></div>
+<div id="rz-se" class="rz" data-dir="se"></div>
+<div id="rz-s"  class="rz" data-dir="s"></div>
+<div id="rz-sw" class="rz" data-dir="sw"></div>
+<div id="rz-w"  class="rz" data-dir="w"></div>
+<div id="rz-nw" class="rz" data-dir="nw"></div>
+
 <script>
 'use strict';
+
+/* ────────────────────────────────────────────────────────────────────
+   ELECTRON FRAMELESS TITLEBAR DETECTION
+   Runs before anything else so body.electron-mode is set immediately,
+   which activates the -webkit-app-region:drag CSS and shows the
+   custom window-control buttons.
+──────────────────────────────────────────────────────────────────── */
+(function () {
+  if (!window.codeGraph?.isElectron) return;
+  document.body.classList.add('electron-mode');
+})();
 
 /* ────────────────────────────────────────────────────────────────────
    PHYSICS SIMULATION
@@ -1347,7 +1605,12 @@ document.getElementById('canvas-wrap').addEventListener('mousemove', e => {
 });
 
 /* ── Resize → immediate hull redraw ──────────────────────── */
-window.addEventListener('resize', () => { resizeCanvases(); updateHulls(); });
+window.addEventListener('resize', () => {
+  resizeCanvases();
+  updateHulls();
+  // Tell Cytoscape about the new canvas size so nodes don't crowd into a corner
+  if (typeof cy !== 'undefined') cy.resize();
+});
 
 
 /* ────────────────────────────────────────────────────────────────────
@@ -1505,6 +1768,9 @@ function crabLoop() {
 
   crabCv.style.left = Math.round(crabX) + 'px';
 
+  /* Keep speech bubble tracking the crab during rave */
+  if (crabPartyActive) _updateCrabSpeechBubblePos();
+
   /* Draw foot particles on fx canvas */
   crabFxCx.clearRect(0, 0, crabFxCv.width, crabFxCv.height);
   for (let i = crabFxParts.length-1; i >= 0; i--) {
@@ -1524,10 +1790,15 @@ function crabLoop() {
 }
 crabLoop();
 
-/* Crab input */
+/* Crab input — document-level mousemove so tracking works even over
+   Electron’s native drag regions (which swallow element-level events). */
 const hdr = document.getElementById('hdr');
-hdr.addEventListener('mousemove', e => {
+
+document.addEventListener('mousemove', e => {
   const rect = hdr.getBoundingClientRect();
+  /* Only track when the cursor is inside the header band */
+  if (e.clientY < rect.top || e.clientY > rect.bottom ||
+      e.clientX < rect.left || e.clientX > rect.right) return;
   crabTargetX = Math.max(8, Math.min(rect.width - 80, e.clientX - rect.left - 40));
 
   /* Consume pending party flag — we're inside a real user gesture so autoplay works */
@@ -1536,7 +1807,14 @@ hdr.addEventListener('mousemove', e => {
     startCrabParty();
   }
 });
-hdr.addEventListener('mouseleave', () => { crabTargetX = CRAB_HOME; });
+
+/* Return home when cursor leaves the window entirely */
+document.addEventListener('mouseleave', () => { crabTargetX = CRAB_HOME; });
+/* Also return home when cursor drops below the header */
+document.addEventListener('mousemove', e => {
+  const rect = hdr.getBoundingClientRect();
+  if (e.clientY > rect.bottom) crabTargetX = CRAB_HOME;
+});
 
 crabCv.addEventListener('mousedown', e => {
   e.stopPropagation();
@@ -1780,6 +2058,45 @@ function _crabPartyTick(ts) {
   crabPartyRafId = requestAnimationFrame(_crabPartyTick);
 }
 
+/* ─── Audio confirmation popup ─────────────────────────────────── */
+const crabAudioPopup = document.getElementById('crab-audio-popup');
+const crabAudioYes   = document.getElementById('crab-audio-yes');
+const crabAudioNo    = document.getElementById('crab-audio-no');
+
+function _showCrabAudioPopup() {
+  crabAudioPopup.style.display = 'block';
+}
+function _hideCrabAudioPopup() {
+  crabAudioPopup.style.display = 'none';
+}
+
+crabAudioYes.addEventListener('click', e => {
+  e.stopPropagation();
+  _hideCrabAudioPopup();
+  _requestCrabRave();
+});
+crabAudioNo.addEventListener('click', e => {
+  e.stopPropagation();
+  _hideCrabAudioPopup();
+  /* Visual rave continues, just no audio */
+});
+
+/* ─── Speech bubble (follows crab during rave) ─────────────────── */
+const crabSpeechBubble = document.getElementById('crab-speech-bubble');
+
+function _showCrabSpeechBubble() {
+  crabSpeechBubble.style.display = 'block';
+}
+function _hideCrabSpeechBubble() {
+  crabSpeechBubble.style.display = 'none';
+}
+function _updateCrabSpeechBubblePos() {
+  if (!crabPartyActive) return;
+  /* Position the bubble to the right of the crab's mouth */
+  const cw = parseInt(crabCv.style.width) || (8 * CELL);
+  crabSpeechBubble.style.left = Math.round(crabX + cw + 10) + 'px';
+}
+
 /* ─── Start ─────────────────────────────────────────────────────── */
 function startCrabParty() {
   if (crabPartyActive) return;
@@ -1791,7 +2108,8 @@ function startCrabParty() {
   partyBanner.style.display = 'block';
 
   _spawnPartyCrabs();
-  _requestCrabRave();
+  _showCrabAudioPopup();   /* ask before playing audio */
+  _showCrabSpeechBubble();
 
   /* Beat metronome at Crab Rave BPM */
   crabPartyBeatTmr = setInterval(() => { crabPartyBeat = 1 - crabPartyBeat; }, PARTY_BEAT_MS);
@@ -1833,6 +2151,8 @@ function _endCrabPartyCleanup() {
   if (crabPartyRafId) { cancelAnimationFrame(crabPartyRafId); crabPartyRafId = null; }
   partyCtx.clearRect(0, 0, partyCv.width, partyCv.height);
   try { _stopYT(); } catch(e) {}
+  _hideCrabAudioPopup();
+  _hideCrabSpeechBubble();
   /* Reset edge flag after 6s cooldown so it can re-trigger */
   setTimeout(() => { _partyRightEdge = false; }, 6000);
   logEntry('crab', '🦀 the crabs have fled into the void. silence returns.', '');
@@ -2091,6 +2411,7 @@ function initCy() {
   cy.on('mouseout', 'node', () => { _tipTimer = setTimeout(_hideTip, 420); });
   cy.on('drag',     'node', () => { clearTimeout(_tipTimer); _hideTip(); });
   cy.on('tap',      'node', onTap);
+  cy.on('dbltap',   'node', onDblTap);
   cy.on('tap',              onBgTap);
 
   cy.on('free','node', e => {
@@ -2240,6 +2561,21 @@ function onTap(e) {
   if (!nbrMode) return;
   cy.elements().addClass('faded');
   e.target.closedNeighborhood().removeClass('faded');
+}
+function onDblTap(e) {
+  if (!nbrMode) return;
+  /* BFS from the tapped node — collect the full connected tree */
+  const root = e.target;
+  const visited = cy.collection();
+  let frontier = root.closedNeighborhood();
+  while (frontier.length > 0) {
+    const fresh = frontier.not(visited);
+    if (fresh.length === 0) break;
+    visited.merge(fresh);
+    frontier = fresh.nodes().closedNeighborhood();
+  }
+  cy.elements().addClass('faded');
+  visited.removeClass('faded');
 }
 function onBgTap(e) {
   if (e.target!==cy) return;
@@ -2671,6 +3007,118 @@ connectWS();
 
 /* Welcome tip */
 setTimeout(() => logEntry('crab', '🦀 Welcome! Click ? TUTORIAL for a guided tour', ''), 1800);
+
+/* ────────────────────────────────────────────────────────────────────
+   SIDEBAR TOGGLE
+──────────────────────────────────────────────────────────────────── */
+(function () {
+  const body   = document.getElementById('body');
+  const toggle = document.getElementById('side-toggle');
+  let hidden = false;
+
+  toggle.addEventListener('click', () => {
+    hidden = !hidden;
+    body.classList.toggle('side-hidden', hidden);
+    toggle.textContent = hidden ? '▶' : '◀';
+    toggle.title       = hidden ? 'Show sidebar' : 'Hide sidebar';
+    /* Let Cytoscape recalculate after the CSS transition ends */
+    setTimeout(() => { if (window.cy) cy.resize(); }, 280);
+  });
+})();
+
+/* ────────────────────────────────────────────────────────────────────
+   ELECTRON WINDOW CONTROLS — wire up minimize / maximize / close
+──────────────────────────────────────────────────────────────────── */
+(function () {
+  if (!window.codeGraph?.isElectron) return;
+
+  document.getElementById('wc-min').addEventListener('click', () => {
+    window.codeGraph.window.minimize();
+  });
+
+  const maxBtn = document.getElementById('wc-max');
+  maxBtn.addEventListener('click', () => {
+    window.codeGraph.window.maximize();
+  });
+
+  document.getElementById('wc-close').addEventListener('click', () => {
+    window.codeGraph.window.close();
+  });
+
+  // Keep the maximize icon in sync with actual window state
+  window.codeGraph.window.onStateChange(({ maximized }) => {
+    maxBtn.textContent = maximized ? '▣' : '▢';
+    maxBtn.title       = maximized ? 'Restore' : 'Maximize';
+  });
+})();
+
+/* ────────────────────────────────────────────────────────────────────
+   JS-DRIVEN WINDOW DRAG — replaces -webkit-app-region:drag so that
+   mousemove always fires for crab tracking.
+──────────────────────────────────────────────────────────────────── */
+(function () {
+  if (!window.codeGraph?.isElectron) return;
+
+  const hdr = document.getElementById('hdr');
+  let dragging = false;
+
+  /* Only start a drag when mousedown lands on #hdr itself or a
+     pointer-events:none child (logo, chips, titlebar-drag).
+     Skip if the actual target is an interactive element. */
+  const INTERACTIVE = new Set(['SELECT', 'BUTTON', 'INPUT', 'CANVAS']);
+
+  hdr.addEventListener('mousedown', e => {
+    if (INTERACTIVE.has(e.target.tagName)) return;
+    if (e.target.closest('.win-ctrl-group')) return;
+    if (e.target.closest('#proj-sel')) return;
+    if (e.target.id === 'crab-cv') return;
+    dragging = true;
+    window.codeGraph.window.startDrag();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    window.codeGraph.window.endDrag();
+  });
+
+  window.addEventListener('blur', () => {
+    if (!dragging) return;
+    dragging = false;
+    window.codeGraph.window.endDrag();
+  });
+})();
+
+/* ────────────────────────────────────────────────────────────────────
+   CUSTOM RESIZE HANDLES — wire up the 8 edge/corner zones
+   (Needed because frame:false on Windows removes OS resize hitboxes)
+──────────────────────────────────────────────────────────────────── */
+(function () {
+  if (!window.codeGraph?.isElectron) return;
+
+  let active = false;
+
+  document.querySelectorAll('.rz').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      active = true;
+      document.body.style.cursor    = el.style.cursor || getComputedStyle(el).cursor;
+      document.body.style.userSelect = 'none';
+      window.codeGraph.window.startResize(el.dataset.dir);
+    });
+  });
+
+  // Stop resize on mouseup anywhere, and on blur (focus lost mid-drag)
+  function endResize() {
+    if (!active) return;
+    active = false;
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+    window.codeGraph.window.endResize();
+  }
+  document.addEventListener('mouseup', endResize);
+  window.addEventListener('blur', endResize);
+})();
 </script>
 </body>
 </html>
