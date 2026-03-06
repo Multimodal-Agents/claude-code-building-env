@@ -99,7 +99,6 @@ This layer works with **any future version** of the Claude Code CLI.
 
 | Skill | Path | What it does |
 |-------|------|-------------|
-| <!-- blues-terminal-execution | `scripts_and_skills/claude_skills/blues_skills/skills/blues-terminal-execution/` | Safe terminal command patterns (disabled — gpt-oss:20b handles this natively; re-enable if small models are added) --> |
 | **prompt-manager** | `scripts_and_skills/claude_skills/blues_skills/skills/prompt-manager/` | Store/search/export prompts and conversations via PromptStore + EmbeddingStore |
 | **code-parser** | `scripts_and_skills/claude_skills/blues_skills/skills/code-parser/` | Surgical codebase reading protocol — single tree scan, mental map, targeted reads only |
 | **speech-to-speech** | `scripts_and_skills/claude_skills/blues_skills/skills/speech-to-speech/` | Real-time voice pipeline: Mic → VAD → Whisper → LLM stream → edge-tts → (SVC) → speaker |

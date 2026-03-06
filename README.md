@@ -199,7 +199,6 @@ Reference plugins from the upstream `claude-code` repo are cloned into `claude_c
 | **speech-to-speech** | `blues_skills/skills/speech-to-speech/` | Real-time voice pipeline: Mic → VAD → Whisper → LLM → edge-tts → speaker |
 | **cytoscape-playground** | `blues_skills/skills/cytoscape-playground/` | Extends Playground plugin with Cytoscape.js graph/network visualization |
 | **job-list** | `blues_skills/skills/job-list/` | Sequential project build queue — processes `*_1.md` → `*_2.md` in order, gates on ≥95% completion |
-| ~~blues-terminal-execution~~ | `blues_skills/skills/blues-terminal-execution/` | Safe terminal patterns *(disabled — larger models handle this natively)* |
 
 All skills live under `scripts_and_skills/claude_skills/blues_skills/skills/`.
 

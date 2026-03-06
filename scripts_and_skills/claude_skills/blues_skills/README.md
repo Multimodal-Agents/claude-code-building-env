@@ -3,8 +3,8 @@
 > Custom Claude Code skill collection by [Leo Borcherding](https://github.com/LeoBorcherding) /
 > [Multimodal-Agents](https://github.com/Multimodal-Agents)
 
-A plugin for [Claude Code](https://github.com/anthropics/claude-code) that adds five skills for
-terminal power-users, AI/ML engineers, and voice-interface builders.
+A plugin for [Claude Code](https://github.com/anthropics/claude-code) that adds six skills for
+terminal power-users, AI/ML engineers, voice-interface builders, and robotics designers.
 
 ---
 
@@ -12,12 +12,12 @@ terminal power-users, AI/ML engineers, and voice-interface builders.
 
 | Skill | Trigger phrase examples | What it does |
 |---|---|---|
-| `blues-terminal-execution` | "ls", "run command", "git status" | Executes PowerShell / shell commands directly without asking for permission on safe ops |
+| `blender-robot` | "blender robot", "bpy script", "3D print robot", `/blender-robot` | Parametric Blender Python scripts for robot design → 3D-print-ready STL export |
 | `code-parser` | "parse this codebase", "explore the repo" | Surgical codebase exploration — reads the minimum files needed to build a full mental model |
-| `prompt-manager` | "save this prompt", "search my datasets", "export for Unsloth" | Manages a local Parquet-based prompt/training-data store with semantic search via Ollama |
 | `cytoscape-playground` | "graph playground", "dependency graph", "knowledge graph" | Generates interactive Cytoscape.js graph explorers as single self-contained HTML files |
-| `speech-to-speech` | "voice pipeline", "speak", "talk to Claude", "S2S" | Real-time voice conversation: Mic → Whisper STT → Claude → edge-tts → speaker |
 | `job-list` | "start job list", "run jobs", "job queue", `/job-list` | Sequential project build queue — runs `*_1.md` → `*_2.md` → ..., gates each job at ≥95% objective completion before advancing |
+| `prompt-manager` | "save this prompt", "search my datasets", "export for Unsloth" | Manages a local Parquet-based prompt/training-data store with semantic search via Ollama |
+| `speech-to-speech` | "voice pipeline", "speak", "talk to Claude", "S2S" | Real-time voice conversation: Mic → Whisper STT → Claude → edge-tts → speaker |
 
 ---
 
@@ -41,15 +41,23 @@ claude plugin add blues-core@blues-skills \
 
 ## Skill Details
 
-### blues-terminal-execution
+### blender-robot
 
-Guides Claude to execute terminal commands immediately rather than describing them.
+Generates complete, parametric Blender Python (`bpy`) scripts for robot design, targeting
+3D-print-ready geometry.
 
-- Covers: `ls`, `cd`, file creation, git, npm/pip, process inspection, network checks
-- Safety rules built in: destructive ops (delete) always ask first; reads/navigation execute directly
-- Optimised for PowerShell on Windows; Unix commands also included
+**Intake → Output protocol:**
+1. Gather robot type, target size, scene state, and printer type (FDM / resin)
+2. Emit a self-contained script: scene setup → collections → primitives → anatomy → joints → STL export
+3. Iteration: round-2+ scripts are delta scripts that only rebuild changed objects
 
-No extra dependencies.
+**Joint library:** ball-and-socket, revolute pin, snap-fit clip, living hinge flexure
+
+**3D print rules:** 1 BU = 1 mm (`scale_length=0.001`), FDM min wall 1.2 mm, EXACT boolean solver
+
+Templates: `templates/humanoid_robot.py`, `robot_arm.py`, `joint_library.py`, `scene_setup.py`
+
+Slash command: `/blender-robot`
 
 ---
 
@@ -168,22 +176,27 @@ blues_skills/
 ├── .claude-plugin/
 │   └── marketplace.json      ← plugin registry
 ├── skills/
-│   ├── blues-terminal-execution/
-│   │   └── SKILL.md
+│   ├── blender-robot/
+│   │   ├── SKILL.md
+│   │   └── templates/
+│   │       ├── humanoid_robot.py
+│   │       ├── joint_library.py
+│   │       ├── robot_arm.py
+│   │       └── scene_setup.py
 │   ├── code-parser/
-│   │   └── SKILL.md
-│   ├── prompt-manager/
 │   │   └── SKILL.md
 │   ├── cytoscape-playground/
 │   │   ├── SKILL.md
 │   │   └── templates/
 │   │       └── graph-explorer.md
-│   ├── speech-to-speech/
+│   ├── job-list/
+│   │   ├── SKILL.md
+│   │   └── references/
+│   │       └── completion-rubric.md
+│   ├── prompt-manager/
 │   │   └── SKILL.md
-│   └── job-list/
-│       ├── SKILL.md
-│       └── references/
-│           └── completion-rubric.md
+│   └── speech-to-speech/
+│       └── SKILL.md
 └── README.md
 ```
 

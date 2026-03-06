@@ -12,16 +12,16 @@
   "plugins": [
     {
       "name": "blues-core",
-      "description": "Core Blues skills: terminal execution, code parsing, graph visualization, prompt management, and speech-to-speech",
+      "description": "Core Blues skills: code parsing, graph visualization, prompt management, and speech-to-speech",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/blues-terminal-execution",
+        "./skills/blender-robot",
         "./skills/code-parser",
-        "./skills/prompt-manager",
         "./skills/cytoscape-playground",
-        "./skills/speech-to-speech",
-        "./skills/job-list"
+        "./skills/job-list",
+        "./skills/prompt-manager",
+        "./skills/speech-to-speech"
       ]
     }
   ]
